@@ -10,23 +10,23 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "import": "./dist/index.js",
-      "require": "./dist/index.cjs",
-      "types": "./dist/index.d.ts"
+      "require": "./dist/index.cjs"
     },
     "./langchain": {
+      "types": "./dist/adapters/langchain/index.d.ts",
       "import": "./dist/adapters/langchain/index.js",
-      "require": "./dist/adapters/langchain/index.cjs",
-      "types": "./dist/adapters/langchain/index.d.ts"
+      "require": "./dist/adapters/langchain/index.cjs"
     },
     "./vercel-ai": {
+      "types": "./dist/adapters/vercel-ai/index.d.ts",
       "import": "./dist/adapters/vercel-ai/index.js",
-      "require": "./dist/adapters/vercel-ai/index.cjs",
-      "types": "./dist/adapters/vercel-ai/index.d.ts"
+      "require": "./dist/adapters/vercel-ai/index.cjs"
     },
     "./mcp": {
-      "import": "./dist/adapters/mcp/server.js",
-      "types": "./dist/adapters/mcp/server.d.ts"
+      "types": "./dist/adapters/mcp/server.d.ts",
+      "import": "./dist/adapters/mcp/server.js"
     }
   },
   "main": "./dist/index.cjs",

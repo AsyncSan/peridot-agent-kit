@@ -2,13 +2,11 @@ import { z } from 'zod'
 import { parseUnits } from 'viem'
 import { PeridotApiClient } from '../../../../shared/api-client'
 import {
-  ARBITRUM_CHAIN_ID,
   BSC_MAINNET_CHAIN_ID,
   getAssetDecimals,
   getControllerAddress,
   getPTokenAddress,
   getUnderlyingTokenAddress,
-  resolveHubChainId,
 } from '../../../../shared/constants'
 import type {
   CrossChainIntent,
@@ -55,10 +53,6 @@ export async function buildCrossChainBorrowIntent(
   const decimals = getAssetDecimals(borrowAssetUpper)
   const amount = parseUnits(input.borrowAmount, decimals)
 
-  const hubChainId = resolveHubChainId(
-    input.targetChainId ?? BSC_MAINNET_CHAIN_ID,
-    config.network ?? 'mainnet',
-  )
   // Hub chain is always BSC for mainnet
   const actualHubChainId = BSC_MAINNET_CHAIN_ID
 

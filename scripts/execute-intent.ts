@@ -20,9 +20,7 @@
  *   MAX_POLLS          — Max status poll attempts (default: 40 = ~2 min)
  */
 
-import { createWalletClient, http } from 'viem'
 import { privateKeyToAccount } from 'viem/accounts'
-import { bsc } from 'viem/chains'
 
 const BICONOMY_API_URL = 'https://api.biconomy.io'
 const POLL_INTERVAL_MS = parseInt(process.env['POLL_INTERVAL_MS'] ?? '3000', 10)

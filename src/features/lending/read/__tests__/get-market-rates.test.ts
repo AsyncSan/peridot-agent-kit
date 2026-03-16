@@ -15,7 +15,7 @@ const MOCK_METRICS = {
 }
 
 beforeEach(() => {
-  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => MOCK_METRICS }))
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_METRICS) }))
 })
 afterEach(() => {
   vi.unstubAllGlobals()
@@ -90,7 +90,7 @@ describe('getMarketRates', () => {
     it('throws when the API returns ok: false', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ ok: false, error: 'db_unavailable' }),
+        json: () => Promise.resolve({ ok: false, error: 'db_unavailable' }),
       }))
       await expect(getMarketRates({ asset: 'USDC', chainId: 56 }, config)).rejects.toThrow('db_unavailable')
     })

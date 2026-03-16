@@ -28,11 +28,11 @@ const MOCK_BICONOMY_RESPONSE = {
 }
 
 function makeSuccessFetch(body: unknown) {
-  return vi.fn().mockResolvedValue({ ok: true, json: async () => body })
+  return vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(body) })
 }
 
 function makeErrorFetch(status = 500) {
-  return vi.fn().mockResolvedValue({ ok: false, status, statusText: 'Error', json: async () => ({}) })
+  return vi.fn().mockResolvedValue({ ok: false, status, statusText: 'Error', json: () => Promise.resolve({}) })
 }
 
 beforeEach(() => {
@@ -161,7 +161,7 @@ describe('PeridotApiClient.biconomyGetStatus', () => {
   })
 
   it('returns not_found when HTTP 404', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, ok: false, json: async () => ({}) }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ status: 404, ok: false, json: () => Promise.resolve({}) }))
     const status = await new PeridotApiClient(config).biconomyGetStatus('0xmissing')
     expect(status.status).toBe('not_found')
     expect(status.superTxHash).toBe('0xmissing')

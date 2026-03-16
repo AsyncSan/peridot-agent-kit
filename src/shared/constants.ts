@@ -4,8 +4,8 @@ import type { Address } from 'viem'
 // API endpoints
 // ---------------------------------------------------------------------------
 
-export const DEFAULT_API_BASE_URL = 'https://app.peridot.finance' as const
-export const BICONOMY_API_URL = 'https://api.biconomy.io' as const
+export const DEFAULT_API_BASE_URL = 'https://app.peridot.finance'
+export const BICONOMY_API_URL = 'https://api.biconomy.io'
 
 // ---------------------------------------------------------------------------
 // Chain IDs

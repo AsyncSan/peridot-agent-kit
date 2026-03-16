@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 import { simulateBorrow } from '../simulate-borrow'
 import type { PeridotConfig } from '../../../../shared/types'
 
@@ -32,14 +32,14 @@ function makePortfolio(totalSupplied: number, totalBorrowed: number) {
 }
 
 function setupMocks(totalSupplied: number, totalBorrowed: number) {
-  vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string) => {
-    if ((url as string).includes('/api/markets/metrics')) {
-      return { ok: true, json: async () => METRICS }
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
+    if ((url).includes('/api/markets/metrics')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(METRICS) })
     }
-    if ((url as string).includes('/api/user/portfolio-data')) {
-      return { ok: true, json: async () => makePortfolio(totalSupplied, totalBorrowed) }
+    if ((url).includes('/api/user/portfolio-data')) {
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(makePortfolio(totalSupplied, totalBorrowed)) })
     }
-    return { ok: false, status: 404 }
+    return Promise.resolve({ ok: false, status: 404 })
   }))
 }
 

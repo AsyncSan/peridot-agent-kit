@@ -21,7 +21,7 @@ import type { PeridotConfig, ToolDefinition } from '../../shared/types'
 // Future feature tool arrays are imported and spread into allTools below.
 // import { marginTools } from '../../features/margin/tools'
 
-function toolsForConfig(config: PeridotConfig): ToolDefinition[] {
+function toolsForConfig(_config: PeridotConfig): ToolDefinition[] {
   return [
     ...lendingTools,
     // ...marginTools,     // Phase 2
@@ -53,7 +53,7 @@ export function createLangChainTools(
       schema = capturedTool.inputSchema as z.ZodObject<z.ZodRawShape>
 
       protected async _call(input: unknown): Promise<string> {
-        const result = await capturedTool.execute(input, capturedConfig)
+        const result = (await capturedTool.execute(input, capturedConfig)) as unknown
         return JSON.stringify(result, null, 2)
       }
     }

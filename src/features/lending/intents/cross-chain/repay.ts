@@ -12,7 +12,6 @@ import type {
   CrossChainIntent,
   PeridotConfig,
   RuntimeErc20Balance,
-  ComposeFlow,
 } from '../../../../shared/types'
 
 export const crossChainRepaySchema = z.object({

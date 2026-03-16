@@ -30,7 +30,7 @@ function makePortfolioResponse(overrides: Partial<{
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: true,
-    json: async () => makePortfolioResponse(),
+    json: () => Promise.resolve(makePortfolioResponse()),
   }))
 })
 afterEach(() => {
@@ -56,7 +56,7 @@ describe('getUserPosition', () => {
     it('returns null healthFactor when no debt', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makePortfolioResponse({ totalBorrowed: 0 }),
+        json: () => Promise.resolve(makePortfolioResponse({ totalBorrowed: 0 })),
       }))
       const result = await getUserPosition({ address: TEST_ADDRESS }, config)
       expect(result.healthFactor).toBeNull()
@@ -82,7 +82,7 @@ describe('getUserPosition', () => {
 
   describe('API interaction', () => {
     it('passes the address as a query parameter', async () => {
-      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => makePortfolioResponse() })
+      const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(makePortfolioResponse()) })
       vi.stubGlobal('fetch', fetchMock)
       await getUserPosition({ address: TEST_ADDRESS }, config)
       const calledUrl = (fetchMock.mock.calls[0] as [string])[0]
@@ -92,7 +92,7 @@ describe('getUserPosition', () => {
     it('throws when the API returns success: false', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => ({ success: false, error: 'wallet_not_found' }),
+        json: () => Promise.resolve({ success: false, error: 'wallet_not_found' }),
       }))
       await expect(getUserPosition({ address: TEST_ADDRESS }, config)).rejects.toThrow('wallet_not_found')
     })
@@ -107,7 +107,7 @@ describe('getUserPosition', () => {
     it('handles a new wallet with zero portfolio values', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: true,
-        json: async () => makePortfolioResponse({ totalSupplied: 0, totalBorrowed: 0 }),
+        json: () => Promise.resolve(makePortfolioResponse({ totalSupplied: 0, totalBorrowed: 0 })),
       }))
       const result = await getUserPosition({ address: TEST_ADDRESS }, config)
       expect(result.totalSuppliedUsd).toBe(0)

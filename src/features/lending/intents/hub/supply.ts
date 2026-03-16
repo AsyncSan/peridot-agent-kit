@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { encodeFunctionData, parseUnits, maxUint256 } from 'viem'
+import { encodeFunctionData, parseUnits } from 'viem'
 import { ERC20_ABI, PTOKEN_ABI, COMPTROLLER_ABI } from '../../../../shared/abis'
 import {
   BSC_MAINNET_CHAIN_ID,

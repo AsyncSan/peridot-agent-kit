@@ -24,7 +24,7 @@ import type { PeridotConfig, ToolDefinition } from '../../shared/types'
 
 // import { marginTools } from '../../features/margin/tools'  // Phase 2
 
-function toolsForConfig(config: PeridotConfig): ToolDefinition[] {
+function toolsForConfig(_config: PeridotConfig): ToolDefinition[] {
   return [
     ...lendingTools,
     // ...marginTools,
@@ -49,7 +49,10 @@ export function createVercelAITools(
         tool({
           description: capturedTool.description,
           parameters: capturedTool.inputSchema as z.ZodObject<z.ZodRawShape>,
-          execute: (input: unknown) => capturedTool.execute(input, config),
+          execute: async (input: unknown) => {
+            const result = (await capturedTool.execute(input, config)) as unknown
+            return result
+          },
         }),
       ]
     }),

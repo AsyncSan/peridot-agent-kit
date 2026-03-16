@@ -3,7 +3,6 @@ import { parseUnits } from 'viem'
 import { PeridotApiClient } from '../../../../shared/api-client'
 import {
   ARBITRUM_CHAIN_ID,
-  BSC_MAINNET_CHAIN_ID,
   getAssetDecimals,
   getPTokenAddress,
   getUnderlyingTokenAddress,

@@ -1,8 +1,9 @@
 name: Release
 
-on:
-  push:
-    branches: [main]
+# Temporarily disabled during development to avoid ENEEDAUTH errors
+# on:
+#   push:
+#     branches: [main]
 
 concurrency: ${{ github.workflow }}-${{ github.ref }}
 

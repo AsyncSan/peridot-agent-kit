@@ -28,12 +28,12 @@ let capturedRequest: ComposeRequest | undefined
 
 beforeEach(() => {
   capturedRequest = undefined
-  vi.stubGlobal('fetch', vi.fn().mockImplementation(async (url: string, opts?: RequestInit) => {
-    if ((url as string).includes('biconomy.io')) {
+  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string, opts?: RequestInit) => {
+    if ((url).includes('biconomy.io')) {
       capturedRequest = JSON.parse(opts?.body as string) as ComposeRequest
-      return { ok: true, json: async () => MOCK_BICONOMY }
+      return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_BICONOMY) })
     }
-    return { ok: false, status: 404, json: async () => ({}) }
+    return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) })
   }))
 })
 afterEach(() => {
@@ -182,7 +182,7 @@ describe('buildCrossChainSupplyIntent', () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: false,
         status: 400,
-        json: async () => ({ message: 'Invalid token' }),
+        json: () => Promise.resolve({ message: 'Invalid token' }),
       }))
       await expect(
         buildCrossChainSupplyIntent(

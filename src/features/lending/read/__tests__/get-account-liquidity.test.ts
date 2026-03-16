@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
+import type * as Viem from 'viem'
 import type { PeridotConfig } from '../../../../shared/types'
 import { BSC_MAINNET_CHAIN_ID } from '../../../../shared/constants'
 
 // Mock viem's createPublicClient before importing the module under test
 vi.mock('viem', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('viem')>()
+  const actual = await importOriginal<typeof Viem>()
   return {
     ...actual,
     createPublicClient: vi.fn(),

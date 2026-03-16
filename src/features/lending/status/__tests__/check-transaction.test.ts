@@ -9,7 +9,7 @@ function mockBiconomyStatus(body: unknown, status = 200) {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
     ok: status === 200,
     status,
-    json: async () => body,
+    json: () => Promise.resolve(body),
   }))
 }
 
@@ -46,7 +46,7 @@ describe('checkTransactionStatus', () => {
   })
 
   it('returns not_found on HTTP 404', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: async () => ({}) }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 404, json: () => Promise.resolve({}) }))
     const result = await checkTransactionStatus({ superTxHash: HASH }, config)
     expect(result.status).toBe('not_found')
     expect(result.superTxHash).toBe(HASH)
@@ -65,7 +65,7 @@ describe('checkTransactionStatus', () => {
   })
 
   it('calls the correct Biconomy status endpoint', async () => {
-    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ status: 'SUCCESS', txHashes: [] }) })
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'SUCCESS', txHashes: [] }) })
     vi.stubGlobal('fetch', fetchMock)
     await checkTransactionStatus({ superTxHash: HASH }, config)
     const calledUrl = (fetchMock.mock.calls[0] as [string])[0]
@@ -74,7 +74,7 @@ describe('checkTransactionStatus', () => {
   })
 
   it('throws on non-404 HTTP errors', async () => {
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: async () => ({}) }))
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 500, json: () => Promise.resolve({}) }))
     await expect(checkTransactionStatus({ superTxHash: HASH }, config)).rejects.toThrow('500')
   })
 })
