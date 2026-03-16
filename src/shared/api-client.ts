@@ -1,0 +1,137 @@
+import { BICONOMY_API_URL, DEFAULT_API_BASE_URL } from './constants'
+import type {
+  BiconomyResponse,
+  ComposeRequest,
+  PeridotConfig,
+  TransactionStatus,
+} from './types'
+
+// ---------------------------------------------------------------------------
+// Raw API response shapes (internal — not exported from package root)
+// ---------------------------------------------------------------------------
+
+export interface RawMarketMetric {
+  utilizationPct: number
+  tvlUsd: number
+  liquidityUnderlying: number
+  liquidityUsd: number
+  priceUsd: number
+  collateral_factor_pct: number
+  updatedAt: string
+  chainId: number
+}
+
+export interface RawUserPortfolio {
+  portfolio: {
+    currentValue: number
+    totalSupplied: number
+    totalBorrowed: number
+    netApy: number
+    /** Note: simplified ratio (totalSupplied / totalBorrowed), not liquidation HF */
+    healthFactor: number
+  }
+  assets: Array<{
+    assetId: string
+    supplied: number
+    borrowed: number
+    net: number
+    percentage: number
+  }>
+  transactions: {
+    totalCount: number
+    supplyCount: number
+    borrowCount: number
+    repayCount: number
+    redeemCount: number
+  }
+  earnings: {
+    effectiveApy: number
+    totalLifetimeEarnings: number
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
+
+export class PeridotApiClient {
+  private readonly baseUrl: string
+  private readonly biconomyApiKey: string | undefined
+
+  constructor(config: PeridotConfig) {
+    this.baseUrl = config.apiBaseUrl ?? DEFAULT_API_BASE_URL
+    this.biconomyApiKey = config.biconomyApiKey
+  }
+
+  /**
+   * Fetches all market metrics. Returns a record keyed by `${ASSET}:${chainId}`.
+   * Example key: `USDC:56`
+   */
+  async getMarketMetrics(): Promise<Record<string, RawMarketMetric>> {
+    const res = await fetch(`${this.baseUrl}/api/markets/metrics`)
+    if (!res.ok) throw new Error(`Failed to fetch market metrics: ${res.status} ${res.statusText}`)
+    const json = (await res.json()) as { ok: boolean; data: Record<string, RawMarketMetric>; error?: string }
+    if (!json.ok) throw new Error(`Market metrics API error: ${json.error ?? 'unknown'}`)
+    return json.data
+  }
+
+  /**
+   * Fetches the portfolio overview for a wallet address.
+   * Uses the platform's portfolio-data endpoint which aggregates DB snapshots.
+   */
+  async getUserPortfolio(address: string): Promise<RawUserPortfolio> {
+    const res = await fetch(`${this.baseUrl}/api/user/portfolio-data?address=${address}`)
+    if (!res.ok) throw new Error(`Failed to fetch portfolio: ${res.status} ${res.statusText}`)
+    const json = (await res.json()) as { success: boolean; data: RawUserPortfolio; error?: string }
+    if (!json.success) throw new Error(`Portfolio API error: ${json.error ?? 'unknown'}`)
+    return json.data
+  }
+
+  /**
+   * Calls Biconomy MEE /compose to build a cross-chain transaction payload.
+   * Does NOT execute — the returned instructions must be signed by the user.
+   */
+  async biconomyCompose(request: ComposeRequest): Promise<BiconomyResponse> {
+    if (!this.biconomyApiKey) {
+      throw new Error('biconomyApiKey is required in PeridotConfig for cross-chain operations')
+    }
+    const res = await fetch(`${BICONOMY_API_URL}/v1/instructions/compose`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-API-Key': this.biconomyApiKey,
+      },
+      body: JSON.stringify(request),
+    })
+    if (!res.ok) {
+      const error: unknown = await res.json().catch(() => ({}))
+      throw new Error(`Biconomy compose error: ${JSON.stringify(error)}`)
+    }
+    return res.json() as Promise<BiconomyResponse>
+  }
+
+  /** Polls Biconomy for the status of a submitted super-transaction. */
+  async biconomyGetStatus(superTxHash: string): Promise<TransactionStatus> {
+    const res = await fetch(`${BICONOMY_API_URL}/v1/explorer/transaction/${superTxHash}`)
+    if (res.status === 404) return { superTxHash, status: 'not_found' }
+    if (!res.ok) throw new Error(`Biconomy status error: ${res.status}`)
+    const data = (await res.json()) as Record<string, unknown>
+    return parseBiconomyStatus(superTxHash, data)
+  }
+}
+
+function parseBiconomyStatus(superTxHash: string, data: Record<string, unknown>): TransactionStatus {
+  const status = String(data['status'] ?? '').toLowerCase()
+  const txHashes = (data['txHashes'] as string[] | undefined) ?? []
+
+  if (status.includes('success') || status.includes('completed')) {
+    return { superTxHash, status: 'success', chainTxHashes: txHashes }
+  }
+  if (status.includes('fail') || status.includes('error')) {
+    return { superTxHash, status: 'failed', error: String(data['message'] ?? 'Unknown error') }
+  }
+  if (status.includes('process')) {
+    return { superTxHash, status: 'processing', chainTxHashes: txHashes }
+  }
+  return { superTxHash, status: 'pending' }
+}
