@@ -26,7 +26,9 @@ function mockReadContract(returnValue: readonly [bigint, bigint, bigint]) {
   } as unknown as ReturnType<typeof createPublicClient>)
 }
 
-afterEach(() => vi.clearAllMocks())
+afterEach(() => {
+  vi.clearAllMocks()
+})
 
 describe('getAccountLiquidity', () => {
   describe('healthy position (no shortfall)', () => {

@@ -33,7 +33,9 @@ beforeEach(() => {
     json: async () => makePortfolioResponse(),
   }))
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('getUserPosition', () => {
   describe('data mapping', () => {

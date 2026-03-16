@@ -31,7 +31,7 @@ export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
   description: string
   /** Zod schema used for runtime validation and LLM schema generation. */
   inputSchema: z.ZodType<TInput>
-  execute: (input: TInput, config: PeridotConfig) => Promise<TOutput>
+  execute: (input: TInput, config: PeridotConfig) => Promise<TOutput> | TOutput
   category: ToolCategory
 }
 
@@ -82,7 +82,7 @@ export interface SimulateBorrowResult {
   riskLevel: 'safe' | 'moderate' | 'high' | 'critical' | 'liquidatable'
   /** Maximum additional safe borrow in USD before health factor drops below 1.5 */
   maxSafeBorrowUsd: number
-  warning?: string
+  warning?: string | undefined
 }
 
 export interface AccountLiquidity {

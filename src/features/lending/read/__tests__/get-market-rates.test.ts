@@ -17,7 +17,9 @@ const MOCK_METRICS = {
 beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => MOCK_METRICS }))
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('getMarketRates', () => {
   describe('happy path', () => {
@@ -69,9 +71,15 @@ describe('getMarketRates', () => {
     })
 
     it('error message lists what IS available on the chain', async () => {
-      const err = await getMarketRates({ asset: 'SHIB', chainId: 56 }, config).catch((e) => e as Error)
-      expect(err.message).toContain('USDC')
-      expect(err.message).toContain('WETH')
+      let err: Error | null = null
+      try {
+        await getMarketRates({ asset: 'SHIB', chainId: 56 }, config)
+      } catch (e) {
+        err = e as Error
+      }
+      expect(err).not.toBeNull()
+      expect(err!.message).toContain('USDC')
+      expect(err!.message).toContain('WETH')
     })
 
     it('throws for a valid asset on a chain it is not listed on', async () => {

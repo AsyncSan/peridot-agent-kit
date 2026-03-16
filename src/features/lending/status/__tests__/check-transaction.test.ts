@@ -13,7 +13,9 @@ function mockBiconomyStatus(body: unknown, status = 200) {
   }))
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('checkTransactionStatus', () => {
   it('returns success with txHashes when status is SUCCESS', async () => {

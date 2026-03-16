@@ -35,8 +35,12 @@ function makeErrorFetch(status = 500) {
   return vi.fn().mockResolvedValue({ ok: false, status, statusText: 'Error', json: async () => ({}) })
 }
 
-beforeEach(() => vi.stubGlobal('fetch', vi.fn()))
-afterEach(() => vi.unstubAllGlobals())
+beforeEach(() => {
+  vi.stubGlobal('fetch', vi.fn())
+})
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('PeridotApiClient.getMarketMetrics', () => {
   it('returns parsed data on success', async () => {

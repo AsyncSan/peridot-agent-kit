@@ -37,10 +37,10 @@ function toolsForConfig(config: PeridotConfig): ToolDefinition[] {
  */
 export function createVercelAITools(
   config: PeridotConfig = {},
-): Record<string, ReturnType<typeof tool>> {
+): Record<string, unknown> {
   const tools = toolsForConfig(config)
 
-  return Object.fromEntries(
+  const entries = Object.fromEntries(
     tools.map((t) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const capturedTool = t as ToolDefinition<any, any>
@@ -54,4 +54,6 @@ export function createVercelAITools(
       ]
     }),
   )
+
+  return entries as Record<string, unknown>
 }

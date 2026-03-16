@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Peridot MCP Server
  *
@@ -54,12 +55,15 @@ const allTools: ToolDefinition[] = [
 
 const config: PeridotConfig = {
   apiBaseUrl: process.env['PERIDOT_API_URL'] ?? 'https://app.peridot.finance',
-  biconomyApiKey: process.env['BICONOMY_API_KEY'],
   network: (process.env['PERIDOT_NETWORK'] as 'mainnet' | 'testnet' | undefined) ?? 'mainnet',
   rpcUrls: {
     ...(process.env['PERIDOT_RPC_BSC'] ? { [BSC_MAINNET_CHAIN_ID]: process.env['PERIDOT_RPC_BSC'] } : {}),
     ...(process.env['PERIDOT_RPC_ARB'] ? { [ARBITRUM_CHAIN_ID]: process.env['PERIDOT_RPC_ARB'] } : {}),
   },
+}
+
+if (process.env['BICONOMY_API_KEY']) {
+  config.biconomyApiKey = process.env['BICONOMY_API_KEY']
 }
 
 // ---------------------------------------------------------------------------
@@ -101,4 +105,9 @@ for (const t of allTools) {
 // ---------------------------------------------------------------------------
 
 const transport = new StdioServerTransport()
-await server.connect(transport)
+
+// Top-level await is fine for ESM, but for the CJS bundle we wrap in
+// an async IIFE so esbuild/tsup don't complain.
+void (async () => {
+  await server.connect(transport)
+})()

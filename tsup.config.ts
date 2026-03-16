@@ -14,8 +14,4 @@ export default defineConfig({
   splitting: false,
   // Peer deps must be external so consumers provide them
   external: ['@langchain/core', 'langchain', 'ai'],
-  // The MCP server entry needs a shebang for use as a CLI
-  banner: {
-    'adapters/mcp/server': '#!/usr/bin/env node',
-  },
 })

@@ -43,7 +43,9 @@ function setupMocks(totalSupplied: number, totalBorrowed: number) {
   }))
 }
 
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('simulateBorrow — risk levels', () => {
   it('classifies as SAFE: projected HF ≥ 2.0', async () => {

@@ -9,7 +9,12 @@ import {
   getUnderlyingTokenAddress,
   resolveHubChainId,
 } from '../../../../shared/constants'
-import type { CrossChainIntent, PeridotConfig, RuntimeErc20Balance } from '../../../../shared/types'
+import type {
+  CrossChainIntent,
+  PeridotConfig,
+  RuntimeErc20Balance,
+  ComposeFlow,
+} from '../../../../shared/types'
 
 export const crossChainSupplySchema = z.object({
   userAddress: z.string().describe('The wallet address on the source chain'),
@@ -32,7 +37,7 @@ export const crossChainSupplySchema = z.object({
     .describe('Bridge slippage tolerance as a decimal (0.01 = 1%). Defaults to 1%.'),
 })
 
-export type CrossChainSupplyInput = z.infer<typeof crossChainSupplySchema>
+export type CrossChainSupplyInput = z.input<typeof crossChainSupplySchema>
 
 /**
  * Builds a cross-chain supply intent using Biconomy MEE.
@@ -56,8 +61,9 @@ export async function buildCrossChainSupplyIntent(
   const decimals = getAssetDecimals(assetUpper)
   const amount = parseUnits(input.amount, decimals)
 
-  const hubChainId = resolveHubChainId(input.sourceChainId, config.network)
-  const sourceToken = getUnderlyingTokenAddress(input.sourceChainId, assetUpper)
+  const sourceChainId = input.sourceChainId ?? ARBITRUM_CHAIN_ID
+  const hubChainId = resolveHubChainId(sourceChainId, config.network ?? 'mainnet')
+  const sourceToken = getUnderlyingTokenAddress(sourceChainId, assetUpper)
   const hubUnderlying = getUnderlyingTokenAddress(hubChainId, assetUpper)
   const pToken = getPTokenAddress(hubChainId, assetUpper)
 
@@ -66,14 +72,14 @@ export async function buildCrossChainSupplyIntent(
     tokenAddress: hubUnderlying,
   }
 
-  const composeFlows = [
+  const composeFlows: ComposeFlow[] = [
     // Step 1: Bridge from spoke → hub
     {
       type: '/instructions/intent-simple' as const,
       data: {
         srcToken: sourceToken,
         dstToken: hubUnderlying,
-        srcChainId: input.sourceChainId,
+        srcChainId: sourceChainId,
         dstChainId: hubChainId,
         amount: amount.toString(),
         slippage: input.slippage ?? 0.01,
@@ -149,7 +155,7 @@ export async function buildCrossChainSupplyIntent(
 
   const collateralNote = input.enableAsCollateral ? ' and enable as collateral' : ''
   const userSteps = [
-    `Bridge ${input.amount} ${assetUpper} from chain ${input.sourceChainId} → hub (chain ${hubChainId})`,
+    `Bridge ${input.amount} ${assetUpper} from chain ${sourceChainId} → hub (chain ${hubChainId})`,
     `Approve Peridot p${assetUpper} market to spend ${assetUpper}`,
     `Supply ${input.amount} ${assetUpper} to Peridot, receiving p${assetUpper}`,
     ...(input.enableAsCollateral ? [`Enable ${assetUpper} as collateral`] : []),
@@ -158,9 +164,9 @@ export async function buildCrossChainSupplyIntent(
 
   return {
     type: 'cross-chain',
-    sourceChainId: input.sourceChainId,
+    sourceChainId,
     destinationChainId: hubChainId,
-    summary: `Cross-chain supply ${input.amount} ${assetUpper} from chain ${input.sourceChainId} to Peridot${collateralNote}`,
+    summary: `Cross-chain supply ${input.amount} ${assetUpper} from chain ${sourceChainId} to Peridot${collateralNote}`,
     userSteps,
     biconomyInstructions: biconomyResponse,
     estimatedGas: biconomyResponse.estimatedGas ?? 'unknown',

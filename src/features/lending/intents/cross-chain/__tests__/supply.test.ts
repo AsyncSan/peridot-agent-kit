@@ -36,7 +36,9 @@ beforeEach(() => {
     return { ok: false, status: 404, json: async () => ({}) }
   }))
 })
-afterEach(() => vi.unstubAllGlobals())
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('buildCrossChainSupplyIntent', () => {
   describe('return type', () => {

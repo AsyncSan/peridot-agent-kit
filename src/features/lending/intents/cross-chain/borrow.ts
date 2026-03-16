@@ -10,7 +10,12 @@ import {
   getUnderlyingTokenAddress,
   resolveHubChainId,
 } from '../../../../shared/constants'
-import type { CrossChainIntent, PeridotConfig, RuntimeErc20Balance } from '../../../../shared/types'
+import type {
+  CrossChainIntent,
+  PeridotConfig,
+  RuntimeErc20Balance,
+  ComposeFlow,
+} from '../../../../shared/types'
 
 export const crossChainBorrowSchema = z.object({
   userAddress: z.string().describe('The wallet address borrowing'),
@@ -30,7 +35,7 @@ export const crossChainBorrowSchema = z.object({
   slippage: z.number().default(0.01).describe('Bridge slippage tolerance. Defaults to 1%.'),
 })
 
-export type CrossChainBorrowInput = z.infer<typeof crossChainBorrowSchema>
+export type CrossChainBorrowInput = z.input<typeof crossChainBorrowSchema>
 
 /**
  * Borrows from Peridot hub and optionally bridges the proceeds to a spoke chain.
@@ -52,7 +57,7 @@ export async function buildCrossChainBorrowIntent(
 
   const hubChainId = resolveHubChainId(
     input.targetChainId ?? BSC_MAINNET_CHAIN_ID,
-    config.network,
+    config.network ?? 'mainnet',
   )
   // Hub chain is always BSC for mainnet
   const actualHubChainId = BSC_MAINNET_CHAIN_ID
@@ -64,7 +69,7 @@ export async function buildCrossChainBorrowIntent(
     getPTokenAddress(actualHubChainId, a.toUpperCase()),
   )
 
-  const composeFlows = [
+  const composeFlows: ComposeFlow[] = [
     // Step 1: Enable collateral
     {
       type: '/instructions/build' as const,
@@ -106,7 +111,7 @@ export async function buildCrossChainBorrowIntent(
   if (input.targetChainId && input.targetChainId !== actualHubChainId) {
     const targetToken = getUnderlyingTokenAddress(input.targetChainId, borrowAssetUpper)
     composeFlows.push({
-      type: '/instructions/intent-simple' as const,
+      type: '/instructions/intent-simple',
       data: {
         srcToken: hubUnderlying,
         dstToken: targetToken,
@@ -116,7 +121,7 @@ export async function buildCrossChainBorrowIntent(
         slippage: input.slippage ?? 0.01,
       },
       batch: false,
-    })
+    } as ComposeFlow)
     userSteps.push(`Bridge ${borrowAssetUpper} from hub → chain ${input.targetChainId}`)
   } else {
     composeFlows.push({

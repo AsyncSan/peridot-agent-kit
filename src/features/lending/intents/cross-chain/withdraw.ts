@@ -8,7 +8,12 @@ import {
   getPTokenAddress,
   getUnderlyingTokenAddress,
 } from '../../../../shared/constants'
-import type { CrossChainIntent, PeridotConfig, RuntimeErc20Balance } from '../../../../shared/types'
+import type {
+  CrossChainIntent,
+  PeridotConfig,
+  RuntimeErc20Balance,
+  ComposeFlow,
+} from '../../../../shared/types'
 
 export const crossChainWithdrawSchema = z.object({
   userAddress: z.string().describe('The wallet address withdrawing'),
@@ -24,7 +29,7 @@ export const crossChainWithdrawSchema = z.object({
   slippage: z.number().default(0.01).describe('Bridge slippage tolerance. Defaults to 1%.'),
 })
 
-export type CrossChainWithdrawInput = z.infer<typeof crossChainWithdrawSchema>
+export type CrossChainWithdrawInput = z.input<typeof crossChainWithdrawSchema>
 
 /**
  * Withdraws from Peridot hub and optionally bridges proceeds to a spoke chain.
@@ -53,7 +58,7 @@ export async function buildCrossChainWithdrawIntent(
     constraints: { gte: '1' },
   }
 
-  const composeFlows = [
+  const composeFlows: ComposeFlow[] = [
     // Step 1: Redeem from Peridot
     {
       type: '/instructions/build' as const,
@@ -74,7 +79,7 @@ export async function buildCrossChainWithdrawIntent(
   if (input.targetChainId && input.targetChainId !== hubChainId) {
     const targetToken = getUnderlyingTokenAddress(input.targetChainId, assetUpper)
     composeFlows.push({
-      type: '/instructions/intent-simple' as const,
+      type: '/instructions/intent-simple',
       data: {
         srcToken: hubUnderlying,
         dstToken: targetToken,
@@ -84,7 +89,7 @@ export async function buildCrossChainWithdrawIntent(
         slippage: input.slippage ?? 0.01,
       },
       batch: false,
-    })
+    } as ComposeFlow)
     userSteps.push(`Bridge ${assetUpper} from hub → chain ${input.targetChainId}`)
   } else {
     composeFlows.push({

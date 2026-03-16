@@ -24,7 +24,7 @@ export const hubSupplySchema = z.object({
     .describe('Whether to enable the supplied asset as collateral. Defaults to true.'),
 })
 
-export type HubSupplyInput = z.infer<typeof hubSupplySchema>
+export type HubSupplyInput = z.input<typeof hubSupplySchema>
 
 /**
  * Builds the transaction calls to supply an asset to a Peridot hub-chain market.
@@ -38,13 +38,14 @@ export function buildHubSupplyIntent(
   input: HubSupplyInput,
   _config: PeridotConfig,
 ): HubTransactionIntent {
+  const chainId = input.chainId ?? BSC_MAINNET_CHAIN_ID
   const assetUpper = input.asset.toUpperCase()
   const decimals = getAssetDecimals(assetUpper)
   const amount = parseUnits(input.amount, decimals)
 
-  const pToken = getPTokenAddress(input.chainId, assetUpper)
-  const underlying = getUnderlyingTokenAddress(input.chainId, assetUpper)
-  const controller = getControllerAddress(input.chainId)
+  const pToken = getPTokenAddress(chainId, assetUpper)
+  const underlying = getUnderlyingTokenAddress(chainId, assetUpper)
+  const controller = getControllerAddress(chainId)
 
   const calls: HubTransactionIntent['calls'] = [
     {
@@ -85,7 +86,7 @@ export function buildHubSupplyIntent(
   const collateralNote = input.enableAsCollateral ? ' and enable as collateral' : ''
   return {
     type: 'hub',
-    chainId: input.chainId,
+    chainId,
     calls,
     summary: `Supply ${input.amount} ${assetUpper} to Peridot on chain ${input.chainId}${collateralNote}`,
   }

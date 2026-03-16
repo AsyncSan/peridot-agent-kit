@@ -8,7 +8,12 @@ import {
   getPTokenAddress,
   getUnderlyingTokenAddress,
 } from '../../../../shared/constants'
-import type { CrossChainIntent, PeridotConfig, RuntimeErc20Balance } from '../../../../shared/types'
+import type {
+  CrossChainIntent,
+  PeridotConfig,
+  RuntimeErc20Balance,
+  ComposeFlow,
+} from '../../../../shared/types'
 
 export const crossChainRepaySchema = z.object({
   userAddress: z.string().describe('The wallet address repaying the debt'),
@@ -27,7 +32,7 @@ export const crossChainRepaySchema = z.object({
   slippage: z.number().default(0.01).describe('Bridge slippage tolerance. Defaults to 1%.'),
 })
 
-export type CrossChainRepayInput = z.infer<typeof crossChainRepaySchema>
+export type CrossChainRepayInput = z.input<typeof crossChainRepaySchema>
 
 /**
  * Repays a Peridot borrow from a spoke chain using Biconomy MEE.
@@ -48,7 +53,7 @@ export async function buildCrossChainRepayIntent(
   const amount = parseUnits(input.amount, decimals)
 
   const hubChainId = BSC_MAINNET_CHAIN_ID
-  const sourceToken = getUnderlyingTokenAddress(input.sourceChainId, assetUpper)
+  const sourceToken = getUnderlyingTokenAddress(input.sourceChainId ?? ARBITRUM_CHAIN_ID, assetUpper)
   const hubUnderlying = getUnderlyingTokenAddress(hubChainId, assetUpper)
   const pToken = getPTokenAddress(hubChainId, assetUpper)
 
@@ -125,13 +130,15 @@ export async function buildCrossChainRepayIntent(
 
   const behalfNote = isBehalf ? ` on behalf of ${repayForAddress}` : ''
 
+  const sourceChainId = input.sourceChainId ?? ARBITRUM_CHAIN_ID
+
   return {
     type: 'cross-chain',
-    sourceChainId: input.sourceChainId,
+    sourceChainId,
     destinationChainId: hubChainId,
-    summary: `Repay ${input.amount} ${assetUpper}${behalfNote} from chain ${input.sourceChainId} to Peridot`,
+    summary: `Repay ${input.amount} ${assetUpper}${behalfNote} from chain ${sourceChainId} to Peridot`,
     userSteps: [
-      `Bridge ${input.amount} ${assetUpper} from chain ${input.sourceChainId} → BSC`,
+      `Bridge ${input.amount} ${assetUpper} from chain ${sourceChainId} → BSC`,
       `Approve Peridot p${assetUpper} to pull repayment tokens`,
       `Repay ${input.amount} ${assetUpper} debt${behalfNote}`,
       `Return any excess ${assetUpper} to your BSC wallet`,
