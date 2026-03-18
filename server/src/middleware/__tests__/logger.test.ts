@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
+
+// Mock metrics so logger tests don't accumulate state in the global singleton
+vi.mock('../../metrics', () => ({ recordRequest: vi.fn() }))
+
 import { jsonLogger } from '../logger'
 import { requestId } from '../request-id'
 

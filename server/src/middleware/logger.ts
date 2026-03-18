@@ -1,4 +1,5 @@
 import type { MiddlewareHandler } from 'hono'
+import { recordRequest } from '../metrics'
 
 interface LogLine {
   ts: string
@@ -40,5 +41,7 @@ export function jsonLogger(): MiddlewareHandler {
     }
 
     process.stdout.write(JSON.stringify(line) + '\n')
+
+    recordRequest(line.path, line.status, line.latencyMs)
   }
 }
