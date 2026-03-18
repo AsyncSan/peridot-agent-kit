@@ -14,6 +14,7 @@
 import type { ToolDefinition } from '../../shared/types'
 
 import { listMarketsSchema, listMarkets } from './read/list-markets'
+import { getPortfolioSchema, getPortfolio } from './read/get-portfolio'
 import { getLeaderboardSchema, getLeaderboard } from './read/get-leaderboard'
 import { getMarketRatesSchema, getMarketRates } from './read/get-market-rates'
 import { getUserPositionSchema, getUserPosition } from './read/get-user-position'
@@ -76,6 +77,25 @@ export const lendingTools: ToolDefinition<any, any>[] = [
       'If you do not know which chainId the asset is on, call list_markets first.',
     inputSchema: getMarketRatesSchema,
     execute: getMarketRates,
+    category: 'lending',
+  },
+
+  {
+    name: 'get_portfolio',
+    description:
+      "Fetch a wallet's full Peridot portfolio overview: portfolio summary (currentValue, " +
+      'totalSupplied, totalBorrowed, netApy, simplified healthFactor), per-asset breakdown ' +
+      'with allocation percentages (supplied, borrowed, net, % of portfolio), all transaction ' +
+      'counts (totalCount, supply/borrow/repay/redeem), and lifetime earnings ' +
+      '(effectiveApy, totalLifetimeEarnings in USD). ' +
+      'Call this when the user asks "how is my portfolio performing?", "what are my earnings?", ' +
+      '"show me my full breakdown", "what percentage of my portfolio is in X?", or any question ' +
+      'about lifetime yield or activity history. ' +
+      'Results are cached for 30 s — concurrent calls for the same address share one request. ' +
+      'For a quick pre-action exposure check before borrowing or withdrawing, ' +
+      'use get_user_position instead (lighter, returns simplified health factor).',
+    inputSchema: getPortfolioSchema,
+    execute: getPortfolio,
     category: 'lending',
   },
 

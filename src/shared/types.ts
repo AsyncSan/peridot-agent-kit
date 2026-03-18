@@ -110,6 +110,38 @@ export interface UserPosition {
   }
 }
 
+export interface PortfolioOverview {
+  address: string
+  portfolio: {
+    currentValue: number
+    totalSupplied: number
+    totalBorrowed: number
+    netApy: number
+    /** Simplified ratio: totalSupplied / totalBorrowed. Null when no debt. */
+    healthFactor: number | null
+  }
+  assets: Array<{
+    assetId: string
+    supplied: number
+    borrowed: number
+    net: number
+    /** Percentage of net portfolio value this asset represents. */
+    percentage: number
+  }>
+  transactions: {
+    totalCount: number
+    supplyCount: number
+    borrowCount: number
+    repayCount: number
+    redeemCount: number
+  }
+  earnings: {
+    effectiveApy: number
+    /** Estimated lifetime earnings in USD based on supply history and net APY. */
+    totalLifetimeEarnings: number
+  }
+}
+
 export interface SimulateBorrowResult {
   currentHealthFactor: number | null
   projectedHealthFactor: number | null
