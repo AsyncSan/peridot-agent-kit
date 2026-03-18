@@ -90,12 +90,12 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_hub_supply_intent',
     description:
-      'Build transaction calldata to supply an asset to Peridot when the user is on a hub chain ' +
-      '(BSC chainId=56, Monad chainId=143, Somnia chainId=1868). ' +
+      'Build transaction calldata to supply an asset to Peridot when the user is on a hub chain. ' +
+      'Hub chains are: BSC (chainId 56), Monad (chainId 143), Somnia (chainId 1868). ' +
+      'ONLY use this tool when chainId is exactly 56, 143, or 1868. ' +
       'Returns an ordered list of calls the user must sign: approve → mint → enterMarkets. ' +
       'Tell the user to sign and submit each call in sequence with their wallet. ' +
-      'Do NOT use this if the user is on Arbitrum, Base, Ethereum, Polygon, Optimism, or Avalanche — ' +
-      'use build_cross_chain_supply_intent instead.',
+      'If chainId is anything else (42161, 8453, 1, 137, 10, 43114, etc.) use build_cross_chain_supply_intent instead.',
     inputSchema: hubSupplySchema,
     execute: buildHubSupplyIntent,
     category: 'lending',
@@ -104,7 +104,7 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_hub_borrow_intent',
     description:
-      'Build transaction calldata to borrow from Peridot on a hub chain. ' +
+      'Build transaction calldata to borrow from Peridot on a hub chain (chainId 56, 143, or 1868). ' +
       'Returns calls: enterMarkets (activate collateral) → borrow. ' +
       'ALWAYS call simulate_borrow first and only proceed if isSafe=true. ' +
       'Tell the user to sign and submit each call in order with their wallet.',
@@ -170,8 +170,9 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_cross_chain_supply_intent',
     description:
-      'Build a cross-chain supply intent for a user on a spoke chain ' +
-      '(Arbitrum 42161, Base 8453, Ethereum 1, Polygon 137, Optimism 10, Avalanche 43114). ' +
+      'Build a cross-chain supply intent for a user on a spoke chain. ' +
+      'Spoke chains are: Arbitrum (42161), Base (8453), Ethereum (1), Polygon (137), Optimism (10), Avalanche (43114). ' +
+      'Do NOT use this if chainId is 56 (BSC), 143 (Monad), or 1868 (Somnia) — those are hub chains, use build_hub_supply_intent instead. ' +
       'Bridges tokens from the spoke chain to BSC and supplies to Peridot in one atomic operation. ' +
       'Returns biconomyInstructions — the user signs a single transaction in their dApp, ' +
       'which submits the payload to Biconomy. Use check_transaction_status to track progress.',

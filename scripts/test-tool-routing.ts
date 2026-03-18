@@ -117,7 +117,7 @@ const cases: RoutingCase[] = [
   // ── Routing discrimination (hub ≠ cross-chain) ──────────────────────────
   {
     label: 'Monad (hub) supply → hub, NOT cross-chain',
-    prompt: 'I am on Monad testnet (chainId 143) and want to supply 200 USDC. Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+    prompt: 'I am on Monad Mainnet (chainId 143) and want to supply 200 USDC. Address: 0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
     expectedTools: ['build_hub_supply_intent'],
     forbiddenTools: ['build_cross_chain_supply_intent'],
   },

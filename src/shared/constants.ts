@@ -62,7 +62,8 @@ export function resolveHubChainId(chainId: number, network: 'mainnet' | 'testnet
 
 export const PERIDOT_CONTROLLER: Partial<Record<number, Address>> = {
   [BSC_MAINNET_CHAIN_ID]: '0x6fC0c15531CB5901ac72aB3CFCd9dF6E99552e14',
-  // Monad and Somnia: add addresses when deployed
+  // [MONAD_MAINNET_CHAIN_ID]: '0x...',  // TODO: add when deployed
+  // [SOMNIA_MAINNET_CHAIN_ID]: '0x...',  // TODO: add when deployed
 }
 
 /** pToken market addresses per hub chain, keyed by asset symbol (uppercase). */
@@ -75,6 +76,8 @@ export const PERIDOT_MARKETS: Partial<Record<number, Partial<Record<string, Addr
     WBTC: '0xdCAbDc1F0B5e603b9191be044a912A8A2949e212',
     AUSD: '0x7A9940B77c0B6DFCcA2028b9F3CCa88E5DC36ebb',
   },
+  // [MONAD_MAINNET_CHAIN_ID]: { ... },  // TODO: add when deployed
+  // [SOMNIA_MAINNET_CHAIN_ID]: { ... },  // TODO: add when deployed
 }
 
 /** Underlying ERC-20 token addresses on BSC Mainnet. */
@@ -85,6 +88,16 @@ export const BSC_UNDERLYING_TOKENS: Partial<Record<string, Address>> = {
   AUSD: '0x00000000eFE302BEAA2b3e6e1b18d08D69a9012a',
   WBNB: '0xbb4CdB9CBd36B01bD1cBaEBF2De08d9173bc095c',
   USDT: '0x55d398326f99059fF775485246999027B3197955',
+}
+
+/**
+ * Underlying ERC-20 token addresses for all hub chains.
+ * Add Monad/Somnia entries here when contracts are deployed.
+ */
+export const HUB_UNDERLYING_TOKENS: Partial<Record<number, Partial<Record<string, Address>>>> = {
+  [BSC_MAINNET_CHAIN_ID]: BSC_UNDERLYING_TOKENS,
+  // [MONAD_MAINNET_CHAIN_ID]: { USDC: '0x...', WETH: '0x...', ... },  // TODO
+  // [SOMNIA_MAINNET_CHAIN_ID]: { USDC: '0x...', WETH: '0x...', ... },  // TODO
 }
 
 /** Token addresses on spoke chains, keyed by chainId then asset symbol. */
@@ -156,17 +169,22 @@ export function getPTokenAddress(chainId: number, asset: string): Address {
 
 export function getUnderlyingTokenAddress(chainId: number, asset: string): Address {
   const symbol = asset.toUpperCase()
+  const chainName = CHAIN_NAMES[chainId] ?? `chain ${chainId}`
 
-  if (chainId === BSC_MAINNET_CHAIN_ID) {
-    const address = BSC_UNDERLYING_TOKENS[symbol]
-    if (!address) throw new Error(`No underlying token for ${symbol} on BSC`)
+  // Hub chains use HUB_UNDERLYING_TOKENS
+  if (isHubChain(chainId)) {
+    const hubTokens = HUB_UNDERLYING_TOKENS[chainId]
+    if (!hubTokens) throw new Error(`No underlying token config for hub chain ${chainName} — contracts may not be deployed yet`)
+    const address = hubTokens[symbol]
+    if (!address) throw new Error(`No underlying token for ${symbol} on ${chainName}`)
     return address
   }
 
+  // Spoke chains use SPOKE_TOKENS
   const spokeTokens = SPOKE_TOKENS[chainId]
-  if (!spokeTokens) throw new Error(`No spoke token config for chain ${chainId}`)
+  if (!spokeTokens) throw new Error(`No token config for chain ${chainName}`)
   const address = spokeTokens[symbol]
-  if (!address) throw new Error(`No token address for ${symbol} on chain ${chainId}`)
+  if (!address) throw new Error(`No token address for ${symbol} on ${chainName}`)
   return address
 }
 
@@ -184,6 +202,10 @@ export function getAssetDecimals(asset: string): number {
 export const DEFAULT_RPC_URLS: Partial<Record<number, string>> = {
   [BSC_MAINNET_CHAIN_ID]: 'https://bsc-dataseed.binance.org',
   [BSC_TESTNET_CHAIN_ID]: 'https://data-seed-prebsc-1-s1.binance.org:8545',
+  [MONAD_MAINNET_CHAIN_ID]: 'https://monad-mainnet.g.alchemy.com/public',
+  [MONAD_TESTNET_CHAIN_ID]: 'https://testnet-rpc.monad.xyz',
+  [SOMNIA_MAINNET_CHAIN_ID]: 'https://dream-rpc.somnia.network',
+  [SOMNIA_TESTNET_CHAIN_ID]: 'https://dream-rpc.somnia.network',
   [ARBITRUM_CHAIN_ID]: 'https://arb1.arbitrum.io/rpc',
   [BASE_CHAIN_ID]: 'https://mainnet.base.org',
   [ETHEREUM_CHAIN_ID]: 'https://eth.llamarpc.com',
