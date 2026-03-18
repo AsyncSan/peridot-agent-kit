@@ -166,6 +166,55 @@ describe('buildCrossChainSupplyIntent', () => {
       expect(bridgeFlow.data['srcToken']).toBe(SPOKE_TOKENS[BASE_CHAIN_ID]!['USDC'])
       expect(bridgeFlow.data['srcChainId']).toBe(BASE_CHAIN_ID)
     })
+
+    it('defaults sourceChainId to Arbitrum when not provided', async () => {
+      const result = await buildCrossChainSupplyIntent(
+        { userAddress: USER, asset: 'USDC', amount: '100' },
+        config,
+      )
+      expect(result.sourceChainId).toBe(ARBITRUM_CHAIN_ID)
+      expect(capturedRequest!.composeFlows[0]!.data['srcChainId']).toBe(ARBITRUM_CHAIN_ID)
+    })
+  })
+
+  describe('enableAsCollateral', () => {
+    it('includes collateral note in summary when omitted (defaults to true)', async () => {
+      const result = await buildCrossChainSupplyIntent(
+        { userAddress: USER, sourceChainId: ARBITRUM_CHAIN_ID, asset: 'USDC', amount: '100' },
+        config,
+      )
+      expect(result.summary).toMatch(/and enable as collateral/)
+    })
+
+    it('omits collateral note from summary when false', async () => {
+      const result = await buildCrossChainSupplyIntent(
+        { userAddress: USER, sourceChainId: ARBITRUM_CHAIN_ID, asset: 'USDC', amount: '100', enableAsCollateral: false },
+        config,
+      )
+      expect(result.summary).not.toMatch(/collateral/)
+    })
+
+    it('omits the enterMarkets step from userSteps when false', async () => {
+      const result = await buildCrossChainSupplyIntent(
+        { userAddress: USER, sourceChainId: ARBITRUM_CHAIN_ID, asset: 'USDC', amount: '100', enableAsCollateral: false },
+        config,
+      )
+      expect(result.userSteps.some((s) => s.toLowerCase().includes('collateral'))).toBe(false)
+    })
+  })
+
+  describe('estimatedGas fallback', () => {
+    it('returns "unknown" when biconomy response omits estimatedGas', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ instructions: [], route: {} }), // no estimatedGas
+      }))
+      const result = await buildCrossChainSupplyIntent(
+        { userAddress: USER, sourceChainId: ARBITRUM_CHAIN_ID, asset: 'USDC', amount: '100' },
+        config,
+      )
+      expect(result.estimatedGas).toBe('unknown')
+    })
   })
 
   describe('error cases', () => {

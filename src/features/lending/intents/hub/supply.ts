@@ -39,6 +39,7 @@ export function buildHubSupplyIntent(
   _config: PeridotConfig,
 ): HubTransactionIntent {
   const chainId = input.chainId ?? BSC_MAINNET_CHAIN_ID
+  const enableAsCollateral = input.enableAsCollateral ?? true
   const assetUpper = input.asset.toUpperCase()
   const decimals = getAssetDecimals(assetUpper)
   const amount = parseUnits(input.amount, decimals)
@@ -70,7 +71,7 @@ export function buildHubSupplyIntent(
     },
   ]
 
-  if (input.enableAsCollateral ?? true) {
+  if (enableAsCollateral) {
     calls.push({
       to: controller,
       data: encodeFunctionData({
@@ -83,7 +84,7 @@ export function buildHubSupplyIntent(
     })
   }
 
-  const collateralNote = input.enableAsCollateral ? ' and enable as collateral' : ''
+  const collateralNote = enableAsCollateral ? ' and enable as collateral' : ''
   return {
     type: 'hub',
     chainId,

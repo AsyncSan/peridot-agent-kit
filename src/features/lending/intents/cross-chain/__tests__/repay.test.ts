@@ -248,6 +248,15 @@ describe('buildCrossChainRepayIntent', () => {
       expect(bridgeFlow.data['srcChainId']).toBe(BASE_CHAIN_ID)
       expect((bridgeFlow.data['srcToken'] as string).toLowerCase()).toBe(SPOKE_TOKENS[BASE_CHAIN_ID]!['USDC']!.toLowerCase())
     })
+
+    it('defaults sourceChainId to Arbitrum when not provided', async () => {
+      const result = await buildCrossChainRepayIntent(
+        { userAddress: USER, asset: 'USDC', amount: '100' },
+        config,
+      )
+      expect(result.sourceChainId).toBe(ARBITRUM_CHAIN_ID)
+      expect(capturedRequest!.composeFlows[0]!.data['srcChainId']).toBe(ARBITRUM_CHAIN_ID)
+    })
   })
 
   describe('error cases', () => {

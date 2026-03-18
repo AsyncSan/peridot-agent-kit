@@ -96,10 +96,32 @@ describe('getUnderlyingTokenAddress', () => {
     expect(addr).toBe(BSC_UNDERLYING_TOKENS['USDC'])
   })
 
-  it('returns correct underlying for Arbitrum', () => {
+  it('returns correct underlying for Arbitrum (spoke)', () => {
     const addr = getUnderlyingTokenAddress(ARBITRUM_CHAIN_ID, 'USDC')
-    // Arbitrum native USDC
     expect(addr).toBe('0xaf88d065e77c8cC2239327C5EDb3A432268e5831')
+  })
+
+  it('is case-insensitive for BSC assets', () => {
+    expect(getUnderlyingTokenAddress(BSC_MAINNET_CHAIN_ID, 'usdc')).toBe(
+      getUnderlyingTokenAddress(BSC_MAINNET_CHAIN_ID, 'USDC'),
+    )
+  })
+
+  it('throws for a hub chain with no token config (contracts not yet deployed)', () => {
+    // Monad / Somnia are hub chains but have no token config until contracts deploy
+    expect(() => getUnderlyingTokenAddress(MONAD_MAINNET_CHAIN_ID, 'USDC')).toThrow(
+      /contracts may not be deployed yet/,
+    )
+    expect(() => getUnderlyingTokenAddress(SOMNIA_MAINNET_CHAIN_ID, 'USDC')).toThrow(
+      /contracts may not be deployed yet/,
+    )
+  })
+
+  it('throws for unknown asset on a hub chain that has token config', () => {
+    // BSC has token config but FAKECOIN is not listed
+    expect(() => getUnderlyingTokenAddress(BSC_MAINNET_CHAIN_ID, 'FAKECOIN')).toThrow(
+      /No underlying token for FAKECOIN/,
+    )
   })
 
   it('throws for unknown spoke chain', () => {

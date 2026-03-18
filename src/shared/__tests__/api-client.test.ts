@@ -85,6 +85,11 @@ describe('PeridotApiClient.getUserPortfolio', () => {
     expect(calledUrl).toContain('address=0xDeAdBeEf')
   })
 
+  it('throws when HTTP response is not ok', async () => {
+    vi.stubGlobal('fetch', makeErrorFetch(503))
+    await expect(new PeridotApiClient(config).getUserPortfolio('0xabc')).rejects.toThrow('503')
+  })
+
   it('throws when success: false', async () => {
     vi.stubGlobal('fetch', makeSuccessFetch({ success: false, error: 'not_found' }))
     await expect(new PeridotApiClient(config).getUserPortfolio('0xabc')).rejects.toThrow('not_found')

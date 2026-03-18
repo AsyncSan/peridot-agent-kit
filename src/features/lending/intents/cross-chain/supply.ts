@@ -61,6 +61,7 @@ export async function buildCrossChainSupplyIntent(
   const amount = parseUnits(input.amount, decimals)
 
   const sourceChainId = input.sourceChainId ?? ARBITRUM_CHAIN_ID
+  const enableAsCollateral = input.enableAsCollateral ?? true
   const hubChainId = resolveHubChainId(sourceChainId, config.network ?? 'mainnet')
   const sourceToken = getUnderlyingTokenAddress(sourceChainId, assetUpper)
   const hubUnderlying = getUnderlyingTokenAddress(hubChainId, assetUpper)
@@ -112,7 +113,7 @@ export async function buildCrossChainSupplyIntent(
   ]
 
   // Step 4: Enable as collateral
-  if (input.enableAsCollateral ?? true) {
+  if (enableAsCollateral) {
     const { getControllerAddress } = await import('../../../../shared/constants')
     const controller = getControllerAddress(hubChainId)
     composeFlows.push({
@@ -152,12 +153,12 @@ export async function buildCrossChainSupplyIntent(
     composeFlows,
   })
 
-  const collateralNote = input.enableAsCollateral ? ' and enable as collateral' : ''
+  const collateralNote = enableAsCollateral ? ' and enable as collateral' : ''
   const userSteps = [
     `Bridge ${input.amount} ${assetUpper} from chain ${sourceChainId} → hub (chain ${hubChainId})`,
     `Approve Peridot p${assetUpper} market to spend ${assetUpper}`,
     `Supply ${input.amount} ${assetUpper} to Peridot, receiving p${assetUpper}`,
-    ...(input.enableAsCollateral ? [`Enable ${assetUpper} as collateral`] : []),
+    ...(enableAsCollateral ? [`Enable ${assetUpper} as collateral`] : []),
     `Return p${assetUpper} tokens to your wallet`,
   ]
 

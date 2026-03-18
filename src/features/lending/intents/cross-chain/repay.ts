@@ -52,7 +52,8 @@ export async function buildCrossChainRepayIntent(
   const amount = parseUnits(input.amount, decimals)
 
   const hubChainId = BSC_MAINNET_CHAIN_ID
-  const sourceToken = getUnderlyingTokenAddress(input.sourceChainId ?? ARBITRUM_CHAIN_ID, assetUpper)
+  const sourceChainId = input.sourceChainId ?? ARBITRUM_CHAIN_ID
+  const sourceToken = getUnderlyingTokenAddress(sourceChainId, assetUpper)
   const hubUnderlying = getUnderlyingTokenAddress(hubChainId, assetUpper)
   const pToken = getPTokenAddress(hubChainId, assetUpper)
 
@@ -71,7 +72,7 @@ export async function buildCrossChainRepayIntent(
       data: {
         srcToken: sourceToken,
         dstToken: hubUnderlying,
-        srcChainId: input.sourceChainId,
+        srcChainId: sourceChainId,
         dstChainId: hubChainId,
         amount: amount.toString(),
         slippage: input.slippage ?? 0.01,
@@ -128,8 +129,6 @@ export async function buildCrossChainRepayIntent(
   })
 
   const behalfNote = isBehalf ? ` on behalf of ${repayForAddress}` : ''
-
-  const sourceChainId = input.sourceChainId ?? ARBITRUM_CHAIN_ID
 
   return {
     type: 'cross-chain',

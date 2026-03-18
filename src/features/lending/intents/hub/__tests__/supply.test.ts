@@ -106,6 +106,23 @@ describe('buildHubSupplyIntent', () => {
     })
   })
 
+  describe('summary', () => {
+    it('includes "and enable as collateral" when enableAsCollateral=true (default)', () => {
+      const intent = buildHubSupplyIntent({ userAddress: USER, asset: 'USDC', amount: '100', chainId: BSC_MAINNET_CHAIN_ID }, config)
+      expect(intent.summary).toMatch(/and enable as collateral/)
+    })
+
+    it('omits collateral note when enableAsCollateral=false', () => {
+      const intent = buildHubSupplyIntent({ userAddress: USER, asset: 'USDC', amount: '100', chainId: BSC_MAINNET_CHAIN_ID, enableAsCollateral: false }, config)
+      expect(intent.summary).not.toMatch(/and enable as collateral/)
+    })
+
+    it('defaults chainId to BSC when not provided', () => {
+      const intent = buildHubSupplyIntent({ userAddress: USER, asset: 'USDC', amount: '100' }, config)
+      expect(intent.chainId).toBe(BSC_MAINNET_CHAIN_ID)
+    })
+  })
+
   describe('error cases', () => {
     it('throws for an asset with no pToken on the chain', () => {
       expect(() =>
