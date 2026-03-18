@@ -36,8 +36,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'get_market_rates',
     description:
-      'Fetch current TVL, utilization, liquidity, and price for a Peridot market. ' +
-      'Use this when the user asks about market conditions, available liquidity, or asset prices.',
+      'Fetch current market data for a Peridot lending market: supply APY, borrow APY, ' +
+      'PERIDOT reward APY, boost APY (Morpho/PancakeSwap/Magma), total supply APY, net borrow APY, ' +
+      'TVL, utilization rate, available liquidity, asset price, and collateral factor. ' +
+      'Call this when the user asks about rates, yields, APY, market conditions, or available liquidity.',
     inputSchema: getMarketRatesSchema,
     execute: getMarketRates,
     category: 'lending',
@@ -46,9 +48,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'get_user_position',
     description:
-      "Fetch a user's complete Peridot portfolio: total supplied, total borrowed, net APY, " +
-      'simplified health factor, and per-asset breakdown. ' +
-      'Always call this before recommending any borrow or withdraw action.',
+      "Fetch a user's complete Peridot portfolio: total supplied USD, total borrowed USD, " +
+      'net APY, health factor (totalSupplied / totalBorrowed — above 1.5 is safe), and per-asset breakdown. ' +
+      'ALWAYS call this before recommending or building any borrow, withdraw, or repay action ' +
+      'so you know the user\'s current exposure and health factor.',
     inputSchema: getUserPositionSchema,
     execute: getUserPosition,
     category: 'lending',
@@ -57,9 +60,11 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'simulate_borrow',
     description:
-      'Simulate what would happen to the health factor if the user borrows a specific amount. ' +
-      'Returns projected HF, risk level, and the maximum safe borrow amount. ' +
-      'ALWAYS call this before building a borrow intent to prevent liquidation risk.',
+      'Simulate the health factor impact of borrowing a specific amount. ' +
+      'Returns projected health factor, risk level (safe/moderate/high/critical/liquidatable), ' +
+      'and the maximum safe borrow amount in USD. ' +
+      'ALWAYS call this before build_hub_borrow_intent or build_cross_chain_borrow_intent. ' +
+      'Do not proceed with a borrow intent if isSafe=false or riskLevel is "high" or worse.',
     inputSchema: simulateBorrowSchema,
     execute: simulateBorrow,
     category: 'lending',
@@ -68,22 +73,29 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'get_account_liquidity',
     description:
-      "Read the user's precise borrow capacity and shortfall directly from the Peridottroller " +
-      'smart contract. More accurate than simulate_borrow for exact liquidation threshold checks. ' +
-      'Requires an RPC URL to be configured.',
+      "Read the user's exact on-chain borrow capacity (liquidityUsd) and shortfall (shortfallUsd) " +
+      'directly from the Peridot comptroller contract. ' +
+      'Use this for precise liquidation threshold checks when simulate_borrow is not accurate enough, ' +
+      'or to confirm a user is healthy before allowing a large withdrawal.',
     inputSchema: getAccountLiquiditySchema,
     execute: getAccountLiquidity,
     category: 'lending',
   },
 
   // ── Hub-chain intents (user on BSC / Monad / Somnia) ─────────────────────
+  // Use hub tools when the user's wallet is already connected to a hub chain.
+  // Hub chains: BSC (56), Monad (143), Somnia (1868).
+  // If the user is on any other chain, use the cross-chain tools instead.
 
   {
     name: 'build_hub_supply_intent',
     description:
-      'Build the transaction calls to supply an asset to Peridot on a hub chain (BSC, Monad, Somnia). ' +
-      'Returns approve + mint + enterMarkets calldata. The user signs each call with their wallet. ' +
-      'Use when the user is already on the hub chain.',
+      'Build transaction calldata to supply an asset to Peridot when the user is on a hub chain ' +
+      '(BSC chainId=56, Monad chainId=143, Somnia chainId=1868). ' +
+      'Returns an ordered list of calls the user must sign: approve → mint → enterMarkets. ' +
+      'Tell the user to sign and submit each call in sequence with their wallet. ' +
+      'Do NOT use this if the user is on Arbitrum, Base, Ethereum, Polygon, Optimism, or Avalanche — ' +
+      'use build_cross_chain_supply_intent instead.',
     inputSchema: hubSupplySchema,
     execute: buildHubSupplyIntent,
     category: 'lending',
@@ -92,9 +104,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_hub_borrow_intent',
     description:
-      'Build the transaction calls to borrow from Peridot on a hub chain. ' +
-      'Returns enterMarkets + borrow calldata. ' +
-      'ALWAYS call simulate_borrow first to verify the action is safe.',
+      'Build transaction calldata to borrow from Peridot on a hub chain. ' +
+      'Returns calls: enterMarkets (activate collateral) → borrow. ' +
+      'ALWAYS call simulate_borrow first and only proceed if isSafe=true. ' +
+      'Tell the user to sign and submit each call in order with their wallet.',
     inputSchema: hubBorrowSchema,
     execute: buildHubBorrowIntent,
     category: 'lending',
@@ -103,8 +116,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_hub_repay_intent',
     description:
-      'Build the transaction calls to repay a Peridot borrow on a hub chain. ' +
-      'Returns approve + repayBorrow calldata. Use amount = "max" to repay the full balance.',
+      'Build transaction calldata to repay a Peridot borrow on a hub chain. ' +
+      'Returns calls: approve → repayBorrow. ' +
+      'Pass amount="max" to repay the entire outstanding balance. ' +
+      'Tell the user to sign and submit each call in order.',
     inputSchema: hubRepaySchema,
     execute: buildHubRepayIntent,
     category: 'lending',
@@ -113,8 +128,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_hub_withdraw_intent',
     description:
-      'Build the transaction call to withdraw (redeem) supplied assets from Peridot on a hub chain. ' +
-      'Will revert on-chain if withdrawal would undercollateralize existing borrows.',
+      'Build transaction calldata to withdraw (redeem) supplied assets from Peridot on a hub chain. ' +
+      'Call get_user_position first to confirm the user has sufficient collateral after withdrawal. ' +
+      'If the user has active borrows, call simulate_borrow or get_account_liquidity first to verify ' +
+      'the withdrawal will not undercollateralize them — the transaction will revert on-chain if it does.',
     inputSchema: hubWithdrawSchema,
     execute: buildHubWithdrawIntent,
     category: 'lending',
@@ -123,9 +140,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_enable_collateral_intent',
     description:
-      'Build the enterMarkets call to enable one or more supplied assets as collateral. ' +
-      'Must be done before borrowing against those assets. ' +
-      'Note: build_hub_supply_intent already includes this when enableAsCollateral=true.',
+      'Build the transaction call to enable supplied assets as collateral in Peridot. ' +
+      'Required before borrowing against those assets. ' +
+      'Note: build_hub_supply_intent already enables collateral by default (enableAsCollateral=true) — ' +
+      'only use this separately if the user supplied previously without enabling collateral.',
     inputSchema: hubEnableCollateralSchema,
     execute: buildHubEnableCollateralIntent,
     category: 'lending',
@@ -134,21 +152,29 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_disable_collateral_intent',
     description:
-      'Build the exitMarket call to stop using a supplied asset as collateral. ' +
-      'Will revert if existing borrows rely on this collateral.',
+      'Build the transaction call to stop using a supplied asset as collateral. ' +
+      'ALWAYS call get_account_liquidity or get_user_position first to confirm the user has ' +
+      'no active borrows relying on this asset — the transaction will revert on-chain if they do.',
     inputSchema: hubDisableCollateralSchema,
     execute: buildHubDisableCollateralIntent,
     category: 'lending',
   },
 
-  // ── Cross-chain intents (user on a spoke chain like Arbitrum) ────────────
+  // ── Cross-chain intents (user on a spoke chain) ───────────────────────────
+  // Use these when the user is on Arbitrum (42161), Base (8453), Ethereum (1),
+  // Polygon (137), Optimism (10), or Avalanche (43114).
+  // These tools call Biconomy MEE to compose a single cross-chain payload.
+  // The result contains biconomyInstructions — tell the user their dApp will
+  // submit this to Biconomy /execute for a single wallet signature.
 
   {
     name: 'build_cross_chain_supply_intent',
     description:
-      'Build a cross-chain supply intent for a user on a spoke chain (Arbitrum, Base, Ethereum, etc.). ' +
-      'Uses Biconomy MEE to atomically bridge tokens to BSC and supply to Peridot in one user signature. ' +
-      'Requires biconomyApiKey in config.',
+      'Build a cross-chain supply intent for a user on a spoke chain ' +
+      '(Arbitrum 42161, Base 8453, Ethereum 1, Polygon 137, Optimism 10, Avalanche 43114). ' +
+      'Bridges tokens from the spoke chain to BSC and supplies to Peridot in one atomic operation. ' +
+      'Returns biconomyInstructions — the user signs a single transaction in their dApp, ' +
+      'which submits the payload to Biconomy. Use check_transaction_status to track progress.',
     inputSchema: crossChainSupplySchema,
     execute: buildCrossChainSupplyIntent,
     category: 'lending',
@@ -157,9 +183,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_cross_chain_borrow_intent',
     description:
-      'Borrow from Peridot hub (BSC) and optionally bridge the proceeds to a target spoke chain. ' +
-      'Uses Biconomy MEE. Requires biconomyApiKey in config. ' +
-      'ALWAYS call simulate_borrow first.',
+      'Borrow from Peridot on BSC and optionally bridge the borrowed tokens to a spoke chain, ' +
+      'all in one cross-chain operation. ' +
+      'ALWAYS call simulate_borrow first and only proceed if isSafe=true. ' +
+      'Returns biconomyInstructions for a single user signature via their dApp.',
     inputSchema: crossChainBorrowSchema,
     execute: buildCrossChainBorrowIntent,
     category: 'lending',
@@ -168,8 +195,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_cross_chain_repay_intent',
     description:
-      'Repay a Peridot borrow from a spoke chain (e.g., pay with USDC on Arbitrum to repay a BSC debt). ' +
-      'Uses Biconomy MEE to bridge and repay atomically. Requires biconomyApiKey in config.',
+      'Repay a Peridot borrow using tokens held on a spoke chain ' +
+      '(e.g. repay a BSC USDC debt by paying with USDC on Arbitrum). ' +
+      'Bridges and repays atomically in one operation. ' +
+      'Returns biconomyInstructions for a single user signature via their dApp.',
     inputSchema: crossChainRepaySchema,
     execute: buildCrossChainRepayIntent,
     category: 'lending',
@@ -178,8 +207,10 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'build_cross_chain_withdraw_intent',
     description:
-      'Withdraw supplied assets from Peridot and optionally bridge them to a target spoke chain. ' +
-      'Uses Biconomy MEE. Requires biconomyApiKey in config.',
+      'Withdraw supplied assets from Peridot on BSC and optionally bridge them to a spoke chain, ' +
+      'all in one cross-chain operation. ' +
+      'Call get_user_position first to verify the withdrawal is safe if the user has active borrows. ' +
+      'Returns biconomyInstructions for a single user signature via their dApp.',
     inputSchema: crossChainWithdrawSchema,
     execute: buildCrossChainWithdrawIntent,
     category: 'lending',
@@ -190,7 +221,8 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   {
     name: 'check_transaction_status',
     description:
-      'Check the status of a cross-chain Biconomy super-transaction. ' +
+      'Check the status of a submitted cross-chain Biconomy transaction by its superTxHash. ' +
+      'Call this after the user has submitted a cross-chain intent to track whether it succeeded. ' +
       'Returns: pending | processing | success | failed | not_found.',
     inputSchema: checkTransactionStatusSchema,
     execute: checkTransactionStatus,

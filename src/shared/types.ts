@@ -42,8 +42,22 @@ export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
 export interface MarketRates {
   asset: string
   chainId: number
+  /** Base lending supply APY from the interest rate model. */
   supplyApyPct: number
+  /** Base lending borrow APY from the interest rate model. */
   borrowApyPct: number
+  /** Additional supply APY paid in PERIDOT/ASTER rewards. */
+  peridotSupplyApyPct: number
+  /** PERIDOT/ASTER rewards that offset the borrow cost. */
+  peridotBorrowApyPct: number
+  /** Supply APY from an external boost source (Morpho vault, PancakeSwap LP fees, Magma staking). */
+  boostSourceSupplyApyPct: number
+  /** Additional reward APY for boosted markets (e.g. Morpho reward tokens). */
+  boostRewardsSupplyApyPct: number
+  /** Total supply APY = base + peridot + boost_source + boost_rewards. */
+  totalSupplyApyPct: number
+  /** Net borrow APY = base borrow APY − peridot borrow reward APY. */
+  netBorrowApyPct: number
   tvlUsd: number
   utilizationPct: number
   liquidityUsd: number

@@ -26,7 +26,7 @@ importers:
         version: 2.30.0(@types/node@20.19.37)
       '@langchain/core':
         specifier: ^0.2.0
-        version: 0.2.36
+        version: 0.2.36(openai@6.32.0(ws@8.18.3)(zod@3.25.76))
       '@types/node':
         specifier: ^20.0.0
         version: 20.19.37
@@ -41,10 +41,13 @@ importers:
         version: 1.6.1(vitest@1.6.1(@types/node@20.19.37))
       ai:
         specifier: ^3.0.0
-        version: 3.4.33(react@19.2.4)(sswr@2.2.0(svelte@5.53.12))(svelte@5.53.12)(vue@3.5.30(typescript@5.9.3))(zod@3.25.76)
+        version: 3.4.33(openai@6.32.0(ws@8.18.3)(zod@3.25.76))(react@19.2.4)(sswr@2.2.0(svelte@5.53.12))(svelte@5.53.12)(vue@3.5.30(typescript@5.9.3))(zod@3.25.76)
       eslint:
         specifier: ^8.57.0
         version: 8.57.1
+      openai:
+        specifier: ^6.32.0
+        version: 6.32.0(ws@8.18.3)(zod@3.25.76)
       tsup:
         specifier: ^8.0.0
         version: 8.5.1(postcss@8.5.8)(tsx@4.21.0)(typescript@5.9.3)
@@ -1774,6 +1777,18 @@ packages:
     resolution: {integrity: sha512-1FlR+gjXK7X+AsAHso35MnyN5KqGwJRi/31ft6x0M194ht7S+rWAvd7PHss9xSKMzE0asv1pyIHaJYq+BbacAQ==}
     engines: {node: '>=12'}
 
+  openai@6.32.0:
+    resolution: {integrity: sha512-j3k+BjydAf8yQlcOI7WUQMQTbbF5GEIMAE2iZYCOzwwB3S2pCheaWYp+XZRNAch4jWVc52PMDGRRjutao3lLCg==}
+    hasBin: true
+    peerDependencies:
+      ws: ^8.18.0
+      zod: ^3.25 || ^4.0
+    peerDependenciesMeta:
+      ws:
+        optional: true
+      zod:
+        optional: true
+
   optionator@0.9.4:
     resolution: {integrity: sha512-6IpQ7mKUxRcZNLIObR0hz7lxsapSSIYNZJwXPGeF0mTVqGKFIXj1DQcMoT22S3ROcLyY/rz0PWaWZ9ayWmad9g==}
     engines: {node: '>= 0.8.0'}
@@ -2861,13 +2876,13 @@ snapshots:
       '@jridgewell/resolve-uri': 3.1.2
       '@jridgewell/sourcemap-codec': 1.5.5
 
-  '@langchain/core@0.2.36':
+  '@langchain/core@0.2.36(openai@6.32.0(ws@8.18.3)(zod@3.25.76))':
     dependencies:
       ansi-styles: 5.2.0
       camelcase: 6.3.0
       decamelize: 1.2.0
       js-tiktoken: 1.0.21
-      langsmith: 0.1.68
+      langsmith: 0.1.68(openai@6.32.0(ws@8.18.3)(zod@3.25.76))
       mustache: 4.2.0
       p-queue: 6.6.2
       p-retry: 4.6.2
@@ -3254,7 +3269,7 @@ snapshots:
 
   acorn@8.16.0: {}
 
-  ai@3.4.33(react@19.2.4)(sswr@2.2.0(svelte@5.53.12))(svelte@5.53.12)(vue@3.5.30(typescript@5.9.3))(zod@3.25.76):
+  ai@3.4.33(openai@6.32.0(ws@8.18.3)(zod@3.25.76))(react@19.2.4)(sswr@2.2.0(svelte@5.53.12))(svelte@5.53.12)(vue@3.5.30(typescript@5.9.3))(zod@3.25.76):
     dependencies:
       '@ai-sdk/provider': 0.0.26
       '@ai-sdk/provider-utils': 1.0.22(zod@3.25.76)
@@ -3270,6 +3285,7 @@ snapshots:
       secure-json-parse: 2.7.0
       zod-to-json-schema: 3.25.1(zod@3.25.76)
     optionalDependencies:
+      openai: 6.32.0(ws@8.18.3)(zod@3.25.76)
       react: 19.2.4
       sswr: 2.2.0(svelte@5.53.12)
       svelte: 5.53.12
@@ -4007,7 +4023,7 @@ snapshots:
     dependencies:
       json-buffer: 3.0.1
 
-  langsmith@0.1.68:
+  langsmith@0.1.68(openai@6.32.0(ws@8.18.3)(zod@3.25.76)):
     dependencies:
       '@types/uuid': 10.0.0
       commander: 10.0.1
@@ -4015,6 +4031,8 @@ snapshots:
       p-retry: 4.6.2
       semver: 7.7.4
       uuid: 10.0.0
+    optionalDependencies:
+      openai: 6.32.0(ws@8.18.3)(zod@3.25.76)
 
   levn@0.4.1:
     dependencies:
@@ -4139,6 +4157,11 @@ snapshots:
   onetime@6.0.0:
     dependencies:
       mimic-fn: 4.0.0
+
+  openai@6.32.0(ws@8.18.3)(zod@3.25.76):
+    optionalDependencies:
+      ws: 8.18.3
+      zod: 3.25.76
 
   optionator@0.9.4:
     dependencies:

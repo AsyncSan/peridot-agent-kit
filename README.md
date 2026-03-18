@@ -141,7 +141,7 @@ These tools are formatted with clear descriptions and strict JSON schemas so you
 
 ### 🔍 Read & Simulate (Risk-Free)
 
-`get_market_rates` — Current supply/borrow APY and TVL for a given asset.
+`get_market_rates` — Full rate breakdown for an asset: base supply/borrow APY, PERIDOT reward APY, boost APY (Morpho/PancakeSwap/Magma), total supply APY, net borrow APY, TVL, utilization, liquidity, price, and collateral factor.
 
 `get_user_position` — Total collateral, total debt, and health factor for a wallet.
 

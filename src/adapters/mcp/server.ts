@@ -75,6 +75,11 @@ const server = new McpServer({
   version: '0.1.0',
 })
 
+/** JSON replacer that serialises BigInt values as decimal strings. */
+function bigintReplacer(_key: string, value: unknown): unknown {
+  return typeof value === 'bigint' ? value.toString() : value
+}
+
 for (const t of allTools) {
   // McpServer.tool() accepts a ZodRawShape (the .shape of a ZodObject)
   const schema = (t.inputSchema as z.ZodObject<z.ZodRawShape>).shape
@@ -87,7 +92,7 @@ for (const t of allTools) {
       try {
         const result = await t.execute(input, config)
         return {
-          content: [{ type: 'text' as const, text: JSON.stringify(result, null, 2) }],
+          content: [{ type: 'text' as const, text: JSON.stringify(result, bigintReplacer, 2) }],
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : String(err)

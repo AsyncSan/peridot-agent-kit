@@ -21,6 +21,25 @@ export interface RawMarketMetric {
   chainId: number
 }
 
+/** Shape of one entry from `/api/apy` (from `apy_latest_mainnet` table). */
+export interface RawMarketApy {
+  supplyApy: number
+  borrowApy: number
+  peridotSupplyApy: number
+  peridotBorrowApy: number
+  boostSourceSupplyApy: number
+  boostRewardsSupplyApy: number
+  totalSupplyApy: number
+  netBorrowApy: number
+  timestamp: string
+}
+
+/**
+ * Full response from `/api/apy`.
+ * Keys are lowercase asset IDs (e.g. "usdc"), values are a map of chainId → APY data.
+ */
+export type RawApyResponse = Record<string, Record<number, RawMarketApy>>
+
 export interface RawUserPortfolio {
   portfolio: {
     currentValue: number
@@ -84,6 +103,24 @@ export class PeridotApiClient {
     if (!res.ok) throw new Error(`Failed to fetch portfolio: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { success: boolean; data: RawUserPortfolio; error?: string }
     if (!json.success) throw new Error(`Portfolio API error: ${json.error ?? 'unknown'}`)
+    return json.data
+  }
+
+  /**
+   * Fetches the latest APY snapshot for all markets (or a specific chain).
+   * Calls `/api/apy` — backed by the `apy_latest_mainnet` DB table.
+   *
+   * Returns a record keyed by lowercase asset ID, then by chainId.
+   * Example: `data["usdc"][56].totalSupplyApy`
+   */
+  async getMarketApy(chainId?: number): Promise<RawApyResponse> {
+    const url = chainId
+      ? `${this.baseUrl}/api/apy?chainId=${chainId}`
+      : `${this.baseUrl}/api/apy`
+    const res = await fetch(url)
+    if (!res.ok) throw new Error(`Failed to fetch APY data: ${res.status} ${res.statusText}`)
+    const json = (await res.json()) as { success: boolean; data: RawApyResponse; error?: string }
+    if (!json.success) throw new Error(`APY API error: ${json.error ?? 'unknown'}`)
     return json.data
   }
 

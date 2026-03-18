@@ -139,6 +139,85 @@ describe('PeridotApiClient.biconomyCompose', () => {
   })
 })
 
+describe('PeridotApiClient.getMarketApy', () => {
+  const MOCK_APY_ALL = {
+    success: true,
+    data: {
+      usdc: {
+        56: { supplyApy: 3.21, borrowApy: 5.67, peridotSupplyApy: 1.10, peridotBorrowApy: 0.80, boostSourceSupplyApy: 0.50, boostRewardsSupplyApy: 0.20, totalSupplyApy: 5.01, netBorrowApy: 4.87, timestamp: '2024-01-01T00:00:00Z' },
+        143: { supplyApy: 1.50, borrowApy: 3.00, peridotSupplyApy: 0.50, peridotBorrowApy: 0.30, boostSourceSupplyApy: 0, boostRewardsSupplyApy: 0, totalSupplyApy: 2.00, netBorrowApy: 2.70, timestamp: '2024-01-01T00:00:00Z' },
+      },
+      weth: {
+        56: { supplyApy: 1.80, borrowApy: 3.50, peridotSupplyApy: 0.60, peridotBorrowApy: 0.40, boostSourceSupplyApy: 0, boostRewardsSupplyApy: 0, totalSupplyApy: 2.40, netBorrowApy: 3.10, timestamp: '2024-01-01T00:00:00Z' },
+      },
+    },
+  }
+
+  it('returns parsed APY data on success', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch(MOCK_APY_ALL))
+    const data = await new PeridotApiClient(config).getMarketApy()
+    expect(data['usdc']?.[56]?.supplyApy).toBe(3.21)
+    expect(data['usdc']?.[56]?.totalSupplyApy).toBe(5.01)
+    expect(data['weth']?.[56]?.borrowApy).toBe(3.50)
+  })
+
+  it('calls /api/apy with no chainId when none provided', async () => {
+    const fetchMock = makeSuccessFetch(MOCK_APY_ALL)
+    vi.stubGlobal('fetch', fetchMock)
+    await new PeridotApiClient(config).getMarketApy()
+    const calledUrl = (fetchMock.mock.calls[0] as [string])[0]
+    expect(calledUrl).toBe(`${BASE_URL}/api/apy`)
+    expect(calledUrl).not.toContain('chainId')
+  })
+
+  it('appends chainId as a query param when provided', async () => {
+    const fetchMock = makeSuccessFetch(MOCK_APY_ALL)
+    vi.stubGlobal('fetch', fetchMock)
+    await new PeridotApiClient(config).getMarketApy(56)
+    const calledUrl = (fetchMock.mock.calls[0] as [string])[0]
+    expect(calledUrl).toBe(`${BASE_URL}/api/apy?chainId=56`)
+  })
+
+  it('uses config.apiBaseUrl as the base', async () => {
+    const fetchMock = makeSuccessFetch(MOCK_APY_ALL)
+    vi.stubGlobal('fetch', fetchMock)
+    const customClient = new PeridotApiClient({ apiBaseUrl: 'https://staging.peridot.finance' })
+    await customClient.getMarketApy(56)
+    const calledUrl = (fetchMock.mock.calls[0] as [string])[0]
+    expect(calledUrl).toContain('staging.peridot.finance')
+  })
+
+  it('returns all APY breakdown fields', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch(MOCK_APY_ALL))
+    const data = await new PeridotApiClient(config).getMarketApy()
+    const entry = data['usdc']![56]!
+    expect(typeof entry.supplyApy).toBe('number')
+    expect(typeof entry.borrowApy).toBe('number')
+    expect(typeof entry.peridotSupplyApy).toBe('number')
+    expect(typeof entry.peridotBorrowApy).toBe('number')
+    expect(typeof entry.boostSourceSupplyApy).toBe('number')
+    expect(typeof entry.boostRewardsSupplyApy).toBe('number')
+    expect(typeof entry.totalSupplyApy).toBe('number')
+    expect(typeof entry.netBorrowApy).toBe('number')
+  })
+
+  it('throws when HTTP response is not ok', async () => {
+    vi.stubGlobal('fetch', makeErrorFetch(503))
+    await expect(new PeridotApiClient(config).getMarketApy()).rejects.toThrow('503')
+  })
+
+  it('throws when success: false', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ success: false, error: 'apy_unavailable' }))
+    await expect(new PeridotApiClient(config).getMarketApy()).rejects.toThrow('apy_unavailable')
+  })
+
+  it('returns empty object when data is empty', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ success: true, data: {} }))
+    const data = await new PeridotApiClient(config).getMarketApy()
+    expect(data).toEqual({})
+  })
+})
+
 describe('PeridotApiClient.biconomyGetStatus', () => {
   it('returns success status with txHashes', async () => {
     vi.stubGlobal('fetch', makeSuccessFetch({ status: 'SUCCESS', txHashes: ['0xhash1', '0xhash2'] }))

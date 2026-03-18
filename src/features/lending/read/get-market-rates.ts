@@ -18,10 +18,15 @@ export async function getMarketRates(
   config: PeridotConfig,
 ): Promise<MarketRates> {
   const client = new PeridotApiClient(config)
-  const metrics = await client.getMarketMetrics()
-
   const assetUpper = input.asset.toUpperCase()
-  // API keys are formatted as `${ASSET}:${chainId}` with the asset in uppercase
+
+  // Fetch market metrics and APY data in parallel
+  const [metrics, apyData] = await Promise.all([
+    client.getMarketMetrics(),
+    client.getMarketApy(input.chainId),
+  ])
+
+  // Metrics are keyed as `${ASSET}:${chainId}` (uppercase asset)
   const key = `${assetUpper}:${input.chainId}`
   const metric = metrics[key]
 
@@ -35,13 +40,20 @@ export async function getMarketRates(
     )
   }
 
+  // APY data is keyed by lowercase asset ID, then by chainId
+  const apy = apyData[assetUpper.toLowerCase()]?.[input.chainId]
+
   return {
     asset: assetUpper,
     chainId: input.chainId,
-    // APY is not included in the metrics endpoint. For on-chain APY,
-    // use getAccountLiquidity with a viem publicClient or check the platform UI.
-    supplyApyPct: 0,
-    borrowApyPct: 0,
+    supplyApyPct: apy?.supplyApy ?? 0,
+    borrowApyPct: apy?.borrowApy ?? 0,
+    peridotSupplyApyPct: apy?.peridotSupplyApy ?? 0,
+    peridotBorrowApyPct: apy?.peridotBorrowApy ?? 0,
+    boostSourceSupplyApyPct: apy?.boostSourceSupplyApy ?? 0,
+    boostRewardsSupplyApyPct: apy?.boostRewardsSupplyApy ?? 0,
+    totalSupplyApyPct: apy?.totalSupplyApy ?? 0,
+    netBorrowApyPct: apy?.netBorrowApy ?? 0,
     tvlUsd: metric.tvlUsd,
     utilizationPct: metric.utilizationPct,
     liquidityUsd: metric.liquidityUsd,
