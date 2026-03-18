@@ -10,22 +10,22 @@ const app = new Hono()
 app.get('/portfolio-data', async (c) => {
   const address = c.req.query('address')
   if (!address) {
-    return c.json({ success: false, error: 'Missing address' }, 400)
+    return c.json({ ok: false, error: 'address is required' }, 400)
   }
   if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
-    return c.json({ success: false, error: 'Invalid address format' }, 400)
+    return c.json({ ok: false, error: 'address must be a valid EIP-55 hex address (0x + 40 hex chars)' }, 400)
   }
 
   try {
     const data = await cache.getOrFetch(`portfolio:${address.toLowerCase()}`, () =>
       fetchPortfolio(address),
     )
-    return c.json({ success: true, data }, 200, {
+    return c.json({ ok: true, data }, 200, {
       'Cache-Control': 'private, s-maxage=30, stale-while-revalidate=60',
     })
   } catch (err) {
     console.error('portfolio-data error:', err)
-    return c.json({ success: false, error: 'Failed to fetch portfolio data' }, 500)
+    return c.json({ ok: false, error: 'Failed to fetch portfolio data' }, 500)
   }
 })
 

@@ -1,4 +1,6 @@
 import { Hono } from 'hono'
+import { zValidator } from '@hono/zod-validator'
+import { z } from 'zod'
 import { sql, tables } from '../db'
 import { Cache } from '../cache'
 
@@ -6,21 +8,37 @@ const cache = new Cache<Record<string, unknown>>(30_000) // 30s
 
 const app = new Hono()
 
-/** GET /api/apy?chainId=56 */
-app.get('/', async (c) => {
-  const chainId = c.req.query('chainId')
-  const cacheKey = `apy:${chainId ?? 'all'}`
-
-  try {
-    const data = await cache.getOrFetch(cacheKey, () => fetchApy(chainId ?? null))
-    return c.json({ success: true, data }, 200, {
-      'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
-    })
-  } catch (err) {
-    console.error('apy error:', err)
-    return c.json({ success: false, error: 'Failed to fetch APY data', data: {} }, 500)
-  }
+const apyQuery = z.object({
+  chainId: z
+    .string()
+    .regex(/^\d+$/, 'chainId must be a positive integer')
+    .optional(),
 })
+
+/** GET /api/apy?chainId=56 */
+app.get(
+  '/',
+  zValidator('query', apyQuery, (result, c) => {
+    if (!result.success) {
+      const message = result.error.issues[0]?.message ?? 'Invalid query parameters'
+      return c.json({ ok: false, error: message }, 400)
+    }
+  }),
+  async (c) => {
+    const { chainId } = c.req.valid('query')
+    const cacheKey = `apy:${chainId ?? 'all'}`
+
+    try {
+      const data = await cache.getOrFetch(cacheKey, () => fetchApy(chainId ?? null))
+      return c.json({ ok: true, data }, 200, {
+        'Cache-Control': 'public, s-maxage=30, stale-while-revalidate=60',
+      })
+    } catch (err) {
+      console.error('apy error:', err)
+      return c.json({ ok: false, error: 'Failed to fetch APY data' }, 500)
+    }
+  },
+)
 
 async function fetchApy(chainId: string | null): Promise<Record<string, unknown>> {
   const rows = chainId
