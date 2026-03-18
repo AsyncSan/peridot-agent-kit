@@ -1,46 +1,54 @@
 # 💎 Peridot Agent Kit
 
-**Enable AI Agents to seamlessly and safely interact with Peridot's Money Markets.**
+**Give AI agents safe, structured access to Peridot's DeFi money markets.**
 
-The Peridot Agent Kit provides LLM-ready tools (Skills) that allow AI agents to fetch market data, simulate lending positions, and prepare transaction intents for users. It is designed to bridge the gap between natural language and deterministic DeFi execution, without compromising user safety.
+The Peridot Agent Kit is a TypeScript SDK that wraps Peridot's lending protocol in LLM-ready tools (Skills). Agents can read live market data, simulate positions, and build transaction intents — all without ever touching a private key. Users review and sign every transaction themselves.
 
 ---
 
 ## Table of Contents
 
-1. [Why use the Peridot Agent Kit?](#-why-use-the-peridot-agent-kit)
-2. [Supported Frameworks](#️-supported-frameworks)
-3. [Installation](#-installation)
-4. [Running the MCP Server](#-running-the-mcp-server)
-5. [Available Tools](#-available-tools-lend--borrow)
-6. [Quick Start](#-quick-start-langchain-example)
-7. [Adding a New Adapter](#-adding-a-new-adapter)
-8. [Roadmap](#️-roadmap)
-9. [Security](#️-security)
-10. [Contributing](#-contributing)
+1. [Why this exists](#-why-this-exists)
+2. [Core safety model](#-core-safety-model)
+3. [Supported frameworks](#️-supported-frameworks)
+4. [Installation](#-installation)
+5. [Running the MCP Server](#-running-the-mcp-server)
+6. [Available tools](#-available-tools)
+7. [Agent workflow guide](#-agent-workflow-guide)
+8. [Quick start examples](#-quick-start-examples)
+9. [Adding a new adapter](#-adding-a-new-adapter)
+10. [Roadmap](#️-roadmap)
+11. [Security](#️-security)
+12. [Contributing](#-contributing)
 
 ---
 
-## 🧠 Why use the Peridot Agent Kit?
+## 🧠 Why this exists
 
-LLMs are great at conversation but notoriously bad at calculating blockchain decimals, predicting liquidation thresholds, or formatting raw smart contract calldata.
+LLMs are excellent at understanding intent ("I want to earn yield on my USDC") but unreliable at the precision work DeFi requires — calculating liquidation thresholds, applying per-asset collateral factors, encoding smart contract calldata, or handling cross-chain bridging logic.
 
-This toolkit solves that by providing **AI-optimized wrappers** around the Peridot API.
-
-**Our Core Philosophy: AI Proposes, User Disposes**
-1. **Zero Math for AI:** Agents rely on the Peridot backend for precise `Health Factor` and decimal calculations.
-2. **Read & Simulate First:** Agents simulate borrowing actions to warn users about liquidation risks *before* generating transactions.
-3. **Intent-Based Execution:** Agents never hold private keys. They generate standardized transaction payloads (intents) that the user reviews and signs in their wallet or dApp frontend.
+This kit bridges that gap. Every tool handles the math and encoding; the agent handles the conversation.
 
 ---
 
-## 🛠️ Supported Frameworks
+## 🛡️ Core safety model
 
-The core tools are framework-agnostic, but we provide ready-to-use wrappers for:
-- [x] LangChain (`@peridot/agent-kit/langchain`)
-- [x] Vercel AI SDK (`@peridot/agent-kit/vercel-ai`)
-- [x] MCP Server - works with Claude Desktop, Cursor, and any MCP client (`@peridot/agent-kit/mcp`)
-- [ ] ElizaOS plugin *(Coming soon)*
+**AI Proposes, User Disposes** — three non-negotiable rules:
+
+1. **Agents never hold keys.** All tools produce *intents* (structured calldata) that the user reviews and signs in their own wallet or dApp.
+2. **Simulate before act.** `simulate_borrow` must be called before any borrow intent. `get_user_position` or `get_account_liquidity` must be called before withdrawals. Tools enforce this in their descriptions.
+3. **Backend handles the math.** Health factors, decimal conversions, and ABI encoding live in the SDK — not in the LLM's context window.
+
+---
+
+## 🛠️ Supported frameworks
+
+| Framework | Import path | Status |
+|---|---|---|
+| MCP (Claude Desktop, Cursor, any MCP client) | `@peridot/agent-kit/mcp` | ✅ |
+| LangChain | `@peridot/agent-kit/langchain` | ✅ |
+| Vercel AI SDK | `@peridot/agent-kit/vercel-ai` | ✅ |
+| ElizaOS | — | Coming soon |
 
 ---
 
@@ -52,33 +60,30 @@ npm install @peridot/agent-kit
 pnpm add @peridot/agent-kit
 ```
 
-If you're using the LangChain or Vercel AI adapters, install the corresponding peer dependency:
+Install the peer dependency for your framework:
 
 ```bash
-# LangChain
-npm install @langchain/core
-
-# Vercel AI SDK
-npm install ai
+npm install @langchain/core   # LangChain
+npm install ai                # Vercel AI SDK
 ```
 
 ---
 
 ## 🖥️ Running the MCP Server
 
-The MCP server exposes all Peridot tools over [Model Context Protocol](https://modelcontextprotocol.io), letting you connect directly from Claude Desktop, Cursor, or any MCP-compatible client - no code required.
+The MCP server exposes all Peridot tools over [Model Context Protocol](https://modelcontextprotocol.io), letting you connect directly from Claude Desktop, Cursor, or any MCP-compatible client — no code required.
 
 ### Environment variables
 
 | Variable | Required | Description |
 |---|---|---|
 | `BICONOMY_API_KEY` | Yes (cross-chain tools) | Biconomy MEE API key |
-| `PERIDOT_API_URL` | No | Defaults to `https://app.peridot.finance` |
+| `PERIDOT_API_URL` | No | Override platform API (default: `https://app.peridot.finance`) |
 | `PERIDOT_NETWORK` | No | `mainnet` (default) or `testnet` |
-| `PERIDOT_RPC_BSC` | No | Custom BSC RPC URL (falls back to public endpoint) |
+| `PERIDOT_RPC_BSC` | No | Custom BSC RPC URL |
 | `PERIDOT_RPC_ARB` | No | Custom Arbitrum RPC URL |
 
-### Option 1 - Claude Desktop (recommended for personal use)
+### Option 1 — Claude Desktop (recommended for personal use)
 
 Add this to `~/.claude/claude_desktop_config.json`:
 
@@ -96,15 +101,14 @@ Add this to `~/.claude/claude_desktop_config.json`:
 }
 ```
 
-Restart Claude Desktop. The Peridot tools will appear automatically.
+Restart Claude Desktop. The Peridot tools appear automatically.
 
-### Option 2 - Run locally from source
+### Option 2 — Run locally from source
 
 ```bash
 git clone https://github.com/AsyncSan/peridot-agent-kit
 cd peridot-agent-kit
-pnpm install
-pnpm build
+pnpm install && pnpm build
 
 BICONOMY_API_KEY=your-key node dist/adapters/mcp/server.js
 ```
@@ -115,9 +119,7 @@ Or during development (no build step):
 BICONOMY_API_KEY=your-key pnpm tsx src/adapters/mcp/server.ts
 ```
 
-### Option 3 - Production / self-hosted
-
-Build the package and run the compiled output with a process manager:
+### Option 3 — Production / self-hosted
 
 ```bash
 pnpm build
@@ -131,47 +133,120 @@ PERIDOT_RPC_BSC=https://your-bsc-rpc.com \
 node dist/adapters/mcp/server.js
 ```
 
-The server communicates over **stdio** (standard MCP transport), so it is meant to be spawned by an MCP host process, not accessed over HTTP directly.
+The server communicates over **stdio** (standard MCP transport) and is spawned by an MCP host — not accessed over HTTP.
 
 ---
 
-## 🧰 Available Tools (Lend & Borrow)
+## 🧰 Available tools
 
-These tools are formatted with clear descriptions and strict JSON schemas so your LLM knows exactly when and how to use them.
+### 🔍 Read & Simulate (no side effects)
 
-### 🔍 Read & Simulate (Risk-Free)
+| Tool | When to call it | Key outputs |
+|---|---|---|
+| `list_markets` | User asks what they can lend/borrow, or you need to discover available assets | asset, chainId, priceUsd, tvlUsd, utilizationPct, liquidityUsd, collateralFactorPct |
+| `get_market_rates` | User asks about APY, yield, or borrow rates for a specific asset | supplyApyPct, borrowApyPct, PERIDOT reward APY, boost APY, netBorrowApyPct, TVL, liquidity |
+| `get_user_position` | Before any borrow, withdraw, or repay — to know the user's current exposure | totalSuppliedUsd, totalBorrowedUsd, netApyPct, simplified healthFactor, per-asset breakdown |
+| `simulate_borrow` | **Required** before every borrow intent | projectedHealthFactor, isSafe, riskLevel, maxSafeBorrowUsd |
+| `get_account_liquidity` | When precision matters: near-liquidation, large withdrawal, or health factor < 1.5 | liquidityUsd (borrow headroom), shortfallUsd (underwater amount), isHealthy |
+| `get_leaderboard` | User asks about top users, their own rank, or activity leaderboard | rank, address, totalPoints, supplyCount, borrowCount, repayCount, redeemCount |
 
-`list_markets` - Discover all available Peridot lending markets across all chains, sorted by TVL. Call this first when the user asks "what can I lend or borrow?".
+### ✍️ Transaction Intents (require user signature)
 
-`get_leaderboard` - Ranked list of top Peridot users by points earned. Supports limit and chainId filters.
+These tools return calldata. Nothing touches the chain until the user signs.
 
-`get_market_rates` - Full rate breakdown for an asset: base supply/borrow APY, PERIDOT reward APY, boost APY (Morpho/PancakeSwap/Magma), total supply APY, net borrow APY, TVL, utilization, liquidity, price, and collateral factor.
+**Chain selection rule:**
+- User on **BSC (56), Monad (143), or Somnia (1868)** → use `build_hub_*` tools
+- User on **Arbitrum (42161), Base (8453), Ethereum (1), Polygon (137), Optimism (10), or Avalanche (43114)** → use `build_cross_chain_*` tools
 
-`get_user_position` - Total collateral, total debt, and health factor for a wallet.
+| Tool | Returns | User action |
+|---|---|---|
+| `build_hub_supply_intent` | `calls[]`: approve → mint → enterMarkets | Sign each call in sequence |
+| `build_hub_borrow_intent` | `calls[]`: enterMarkets → borrow | Sign each call in sequence |
+| `build_hub_repay_intent` | `calls[]`: approve → repayBorrow | Sign each call in sequence |
+| `build_hub_withdraw_intent` | `calls[]`: redeem | Sign each call in sequence |
+| `build_enable_collateral_intent` | `calls[]`: enterMarkets | Sign the call |
+| `build_disable_collateral_intent` | `calls[]`: exitMarket | Sign the call |
+| `build_cross_chain_supply_intent` | `biconomyInstructions` | Sign once in dApp → Biconomy executes |
+| `build_cross_chain_borrow_intent` | `biconomyInstructions` | Sign once in dApp → Biconomy executes |
+| `build_cross_chain_repay_intent` | `biconomyInstructions` | Sign once in dApp → Biconomy executes |
+| `build_cross_chain_withdraw_intent` | `biconomyInstructions` | Sign once in dApp → Biconomy executes |
 
-`simulate_borrow` - Projects the new health factor and liquidation risk before a borrow is submitted.
+### 🔄 Status
 
-`get_account_liquidity` - On-chain authoritative liquidity and shortfall from the Peridot Comptroller contract.
-
-### ✍️ Transaction Intents (Require User Signature)
-
-These tools return calldata payloads. Nothing is sent to the chain until the user signs.
-
-**Hub chain (direct, single-chain):**
-
-`build_hub_supply_intent` · `build_hub_borrow_intent` · `build_hub_repay_intent` · `build_hub_withdraw_intent` · `build_enable_collateral_intent` · `build_disable_collateral_intent`
-
-**Cross-chain (via Biconomy MEE):**
-
-`build_cross_chain_supply_intent` · `build_cross_chain_borrow_intent` · `build_cross_chain_repay_intent` · `build_cross_chain_withdraw_intent`
-
-**Status:**
-
-`check_transaction_status` - Poll a Biconomy super-transaction hash for completion.
+| Tool | When to call it |
+|---|---|
+| `check_transaction_status` | After a cross-chain intent is submitted. Poll every ~10s until `success` or `failed`. |
 
 ---
 
-## 🚀 Quick Start (LangChain Example)
+## 🗺️ Agent workflow guide
+
+### Workflow 1: User wants to lend
+
+```
+1. list_markets          → show available assets + TVL
+2. get_market_rates      → show APY for chosen asset
+3. build_hub_supply_intent (or build_cross_chain_supply_intent)
+4. Present calls to user → user signs
+```
+
+### Workflow 2: User wants to borrow
+
+```
+1. get_user_position     → understand current collateral + exposure
+2. simulate_borrow       → project health factor for requested amount
+   ↳ isSafe=false?       → explain risk, suggest smaller amount, STOP
+   ↳ riskLevel=high?     → warn clearly before proceeding
+3. build_hub_borrow_intent (or build_cross_chain_borrow_intent)
+4. Present calls to user → user signs
+```
+
+### Workflow 3: User wants to withdraw
+
+```
+1. get_user_position     → check for active borrows
+   ↳ no borrows?         → safe to proceed
+   ↳ has borrows?        → call get_account_liquidity first
+2. get_account_liquidity → verify withdrawal won't cause shortfall
+3. build_hub_withdraw_intent (or build_cross_chain_withdraw_intent)
+4. Present calls to user → user signs
+```
+
+### Workflow 4: Track a cross-chain transaction
+
+```
+After user submits biconomyInstructions in their dApp:
+1. check_transaction_status(superTxHash)  → poll every ~10s
+   ↳ "pending" / "processing" → keep polling
+   ↳ "success"               → confirm to user
+   ↳ "failed"                → explain and offer to retry
+```
+
+---
+
+### Suggested system prompt
+
+Include this in your agent's system prompt to set the right expectations:
+
+```
+You are a DeFi assistant with access to Peridot's money market protocol.
+
+Rules you must follow:
+- ALWAYS call simulate_borrow before building any borrow intent. Never skip this.
+- ALWAYS call get_user_position before building withdraw or repay intents.
+- If simulate_borrow returns isSafe=false, explain the risk and do not proceed.
+- Never claim to execute transactions — you build intents that the user signs.
+- Hub chains are BSC (56), Monad (143), Somnia (1868). All others are spoke chains.
+- For spoke-chain users, use build_cross_chain_* tools, not build_hub_* tools.
+- After a cross-chain transaction is submitted, offer to track it with check_transaction_status.
+- Quote specific numbers (APY, health factor, USD values) — don't be vague.
+```
+
+---
+
+## 🚀 Quick start examples
+
+### LangChain
 
 ```typescript
 import { ChatOpenAI } from "@langchain/openai"
@@ -188,13 +263,21 @@ const agent = await createReactAgent({
 })
 
 const result = await agent.invoke({
-  input: "I want to borrow 500 USDC against my existing collateral. Is it safe?"
+  input: "I want to borrow 500 USDC on BSC. My address is 0x... Is it safe?",
 })
 
 console.log(result.output)
+// Agent will: get_user_position → simulate_borrow → report risk level
+// → if safe, build_hub_borrow_intent → present calldata to user
 ```
 
-**Vercel AI SDK:**
+Filter to a specific category if you only want read tools:
+
+```typescript
+const readOnlyTools = createLangChainTools({}, { categories: ['lending'] })
+```
+
+### Vercel AI SDK
 
 ```typescript
 import { generateText } from "ai"
@@ -203,16 +286,40 @@ import { createVercelAITools } from "@peridot/agent-kit/vercel-ai"
 
 const { text } = await generateText({
   model: openai("gpt-4o"),
-  tools: createVercelAITools({ biconomyApiKey: process.env.BICONOMY_API_KEY }),
-  prompt: "What is the USDC borrow APY on Peridot right now?",
+  tools: createVercelAITools({
+    biconomyApiKey: process.env.BICONOMY_API_KEY,
+  }),
+  prompt: "What is the current USDC supply APY on Peridot? Show me all boosted yields.",
 })
+```
+
+### Direct SDK usage (no LLM)
+
+Import any tool function directly for use in your own code:
+
+```typescript
+import { listMarkets, getMarketRates, simulateBorrow } from "@peridot/agent-kit"
+
+const { markets } = await listMarkets({}, { apiBaseUrl: "https://app.peridot.finance" })
+const rates = await getMarketRates({ asset: "usdc", chainId: 56 }, config)
+
+const sim = await simulateBorrow({
+  address: "0x...",
+  asset: "usdc",
+  chainId: 56,
+  amount: "500",
+}, config)
+
+if (!sim.isSafe) {
+  console.log(`Too risky — max safe borrow: $${sim.maxSafeBorrowUsd}`)
+}
 ```
 
 ---
 
-## 🔌 Adding a New Adapter
+## 🔌 Adding a new adapter
 
-An adapter's only job: iterate over the tool registry and wrap each `execute` function in whatever calling convention your framework expects.
+An adapter's only job is to wrap each `execute` function in the calling convention your framework expects. Both existing adapters are under 65 lines.
 
 ### The contract
 
@@ -226,30 +333,22 @@ interface ToolDefinition<TInput, TOutput> {
 }
 ```
 
-Use `src/adapters/langchain/index.ts` and `src/adapters/vercel-ai/index.ts` as canonical examples. Both are under 65 lines.
-
 ### Implementation
 
 **1. Create `src/adapters/my-framework/index.ts`**
 
-Copy the pattern used by the existing adapters. The key difference between frameworks is their return shape:
-
-- **LangChain** expects `StructuredTool[]` (an array of class instances)
-- **Vercel AI SDK** expects `Record<string, Tool>` (an object keyed by tool name)
-
-Check your framework's docs and pick the right shape. The internals are identical:
+Use `src/adapters/langchain/index.ts` or `src/adapters/vercel-ai/index.ts` as your template.
+The only framework-specific part is the return shape:
 
 ```typescript
 import { lendingTools } from '../../features/lending/tools'
 import type { PeridotConfig, ToolDefinition } from '../../shared/types'
 import type { z } from 'zod'
 
-// List which feature modules this adapter includes.
-// Explicit opt-in is intentional: adapters control their own scope.
-function allTools(config: PeridotConfig): ToolDefinition[] {
+function allTools(_config: PeridotConfig): ToolDefinition[] {
   return [
     ...lendingTools,
-    // ...marginTools,     // Phase 2 — uncomment when released
+    // ...marginTools,  // Phase 2 — uncomment when released
   ]
 }
 
@@ -258,42 +357,14 @@ export function createMyFrameworkTools(config: PeridotConfig = {}) {
     myFramework.register({
       name: tool.name,
       description: tool.description,
-      // Pass Zod schema directly if the framework supports it:
       schema: tool.inputSchema as z.ZodObject<z.ZodRawShape>,
-      // Or convert to JSON Schema if it doesn't:
-      // schema: zodToJsonSchema(tool.inputSchema),
       execute: (input: unknown) => tool.execute(input, config),
     })
   )
 }
 ```
 
-Optionally support category filtering (LangChain adapter does this):
-
-```typescript
-export function createMyFrameworkTools(
-  config: PeridotConfig = {},
-  options?: { categories?: string[] },
-) {
-  const tools = options?.categories
-    ? allTools(config).filter((t) => options.categories!.includes(t.category))
-    : allTools(config)
-  // ...map over tools
-}
-```
-
-**2. Register in `src/adapters/mcp/server.ts`**
-
-The MCP server has its own `allTools` array. Add new feature modules there too so they appear in Claude Desktop and other MCP clients:
-
-```typescript
-const allTools: ToolDefinition[] = [
-  ...lendingTools,
-  // ...marginTools,  // add here when Phase 2 ships
-]
-```
-
-**3. Wire up the three config files**
+**2. Wire up the three config files**
 
 ```json
 // package.json — add export
@@ -315,26 +386,29 @@ const allTools: ToolDefinition[] = [
 "peerDependenciesMeta": { "my-framework-sdk": { "optional": true } }
 ```
 
-That's it. The new adapter automatically exposes every tool in its `allTools` list, including future features when they're spread in.
+The new adapter automatically gets every tool in `allTools`, including future features when they're spread in.
 
 ---
 
 ## 🗺️ Roadmap
 
-Phase 1: Core Money Market (✅ Active) - Lend, Borrow, Repay, Withdraw, Cross-chain.
+**Phase 1: Core Money Market** ✅ Active
+Lend, Borrow, Repay, Withdraw, Cross-chain via Biconomy MEE.
 
-Phase 2: Margin & Leverage (🚧 In Development) - 1-click looping strategies, leverage intents, and advanced swap routing.
+**Phase 2: Margin & Leverage** 🚧 In Development
+One-click looping strategies, leverage intents, advanced swap routing.
 
-Phase 3: Automated Liquidations - Tools for specialized keeper bots.
+**Phase 3: Automated Liquidations**
+Tools for specialized keeper bots to identify and liquidate underwater positions.
 
 ---
 
 ## 🛡️ Security
 
-This SDK provides data and transaction preparation only. It does not execute transactions automatically. Always ensure your application interface clearly displays the intent data (especially health factor changes) before prompting the user to sign with their wallet.
+This SDK produces transaction intents only. It never executes transactions, holds private keys, or calls Biconomy `/execute`. Always ensure your UI shows the full intent (especially projected health factor changes) before prompting the user to sign.
 
 ---
 
 ## 🤝 Contributing
 
-We welcome contributions! Please see our Contributing Guidelines to get started.
+We welcome contributions. Please see our Contributing Guidelines to get started.
