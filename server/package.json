@@ -1,0 +1,30 @@
+{
+  "name": "peridot-mcp-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx --env-file=.env src/index.ts",
+    "start": "node dist/server.js",
+    "build": "bun build src/index.ts --outfile dist/server.js --target bun --minify",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "e2e": "tsx scripts/e2e.ts"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.0",
+    "hono": "^4.7.0",
+    "postgres": "^3.4.0",
+    "viem": "^2.47.5"
+  },
+  "devDependencies": {
+    "@types/js-yaml": "^4.0.9",
+    "@types/node": "^20.0.0",
+    "@vitest/coverage-v8": "^4.1.0",
+    "js-yaml": "^4.1.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0",
+    "vitest": "^4.1.0"
+  }
+}

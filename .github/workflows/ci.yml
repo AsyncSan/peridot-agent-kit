@@ -7,6 +7,7 @@ on:
     branches: [main]
 
 jobs:
+  # ── Agent-kit: typecheck, lint, test, build ──────────────────────────────────
   validate:
     name: Typecheck, Lint & Test
     runs-on: ubuntu-latest
@@ -36,3 +37,93 @@ jobs:
 
       - name: Build
         run: pnpm build
+
+  # ── MCP server: typecheck, test, Docker smoke test ───────────────────────────
+  server-ci:
+    name: MCP Server CI
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: server/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      # Verify the Dockerfile + bundle compile cleanly.
+      # Image is not pushed here — deploy job does that on main only.
+      - name: Build Docker image (smoke test)
+        run: docker build -t peridot-mcp-server:ci .
+
+  # ── Deploy MCP server to production (main branch only) ──────────────────────
+  deploy:
+    name: Push image & deploy
+    needs: [validate, server-ci]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write   # needed to push to GitHub Container Registry
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # GHCR requires lowercase — github.repository_owner may be mixed case
+      - name: Compute lowercase image name
+        id: image
+        run: echo "name=ghcr.io/$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')/peridot-mcp-server" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push image
+        uses: docker/build-push-action@v6
+        with:
+          context: server
+          push: true
+          tags: |
+            ${{ steps.image.outputs.name }}:latest
+            ${{ steps.image.outputs.name }}:${{ github.sha }}
+
+      - name: Deploy to server
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.DEPLOY_HOST }}
+          username: root
+          key: ${{ secrets.DEPLOY_SSH_KEY }}
+          envs: GHCR_IMAGE
+          script: |
+            set -euo pipefail
+            cd /opt/peridot-mcp-server
+            # Image is public (from public repo) — no docker login needed
+            sed -i "s|^PERIDOT_IMAGE=.*|PERIDOT_IMAGE=${GHCR_IMAGE}:latest|" .env
+            docker compose -f docker-compose.prod.yml pull
+            docker compose -f docker-compose.prod.yml up -d --remove-orphans
+            docker image prune -f
+            echo "Deploy complete — $(date -u)"
+        env:
+          GHCR_IMAGE: ${{ steps.image.outputs.name }}
