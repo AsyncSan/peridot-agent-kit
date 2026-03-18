@@ -64,36 +64,36 @@ describe('createVercelAITools', () => {
   it('each entry has a description string', () => {
     const tools = createVercelAITools()
     for (const [name, t] of Object.entries(tools)) {
-      expect(typeof (t as any).description, `No description on ${name}`).toBe('string')
-      expect((t as any).description.trim(), `Empty description on ${name}`).not.toBe('')
+      expect(typeof t.description, `No description on ${name}`).toBe('string')
+      expect(t.description.trim(), `Empty description on ${name}`).not.toBe('')
     }
   })
 
   it('each entry has a parameters object with a .parse method (Zod schema)', () => {
     const tools = createVercelAITools()
     for (const [name, t] of Object.entries(tools)) {
-      expect(typeof (t as any).parameters?.parse, `No .parse on ${name} parameters`).toBe('function')
+      expect(typeof t.parameters?.parse, `No .parse on ${name} parameters`).toBe('function')
     }
   })
 
   it('each entry has an execute function', () => {
     const tools = createVercelAITools()
     for (const [name, t] of Object.entries(tools)) {
-      expect(typeof (t as any).execute, `No execute on ${name}`).toBe('function')
+      expect(typeof t.execute, `No execute on ${name}`).toBe('function')
     }
   })
 
   it('descriptions match the source ToolDefinition', () => {
     const tools = createVercelAITools()
     for (const def of lendingTools) {
-      expect((tools[def.name] as any).description).toBe(def.description)
+      expect(tools[def.name].description).toBe(def.description)
     }
   })
 
   describe('tool execution', () => {
     it('list_markets execute returns the underlying result', async () => {
       const tools = createVercelAITools({ apiBaseUrl: 'https://app.peridot.finance' })
-      const result = await (tools['list_markets'] as any).execute({}) as { markets: unknown[]; count: number }
+      const result = await tools['list_markets'].execute({}) as { markets: unknown[]; count: number }
       expect(Array.isArray(result.markets)).toBe(true)
       expect(typeof result.count).toBe('number')
     })
@@ -101,14 +101,14 @@ describe('createVercelAITools', () => {
     it('propagates errors from the underlying execute', async () => {
       vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('network down')))
       const tools = createVercelAITools()
-      await expect((tools['list_markets'] as any).execute({})).rejects.toThrow('network down')
+      await expect(tools['list_markets'].execute({})).rejects.toThrow('network down')
     })
 
     it('passes config to the underlying execute', async () => {
       const customUrl = 'https://custom.peridot.finance'
       const tools = createVercelAITools({ apiBaseUrl: customUrl })
       // The fetch mock captures the URL — verify the custom base was used
-      await (tools['list_markets'] as any).execute({})
+      await tools['list_markets'].execute({})
       const calls = vi.mocked(fetch).mock.calls
       const usedUrl = calls[0]![0] as string
       expect(usedUrl).toContain(customUrl)
