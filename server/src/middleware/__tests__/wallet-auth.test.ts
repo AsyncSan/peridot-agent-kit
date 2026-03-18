@@ -85,7 +85,7 @@ describe('walletAuth middleware', () => {
     const body = await res.json()
     expect(typeof body.error).toBe('string')
     expect(body.error.length).toBeGreaterThan(0)
-    expect(body.success).toBe(false)
+    expect(body.ok).toBe(false)
   })
 
   // ── Bad timestamp ───────────────────────────────────────────────────────────

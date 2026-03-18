@@ -40,20 +40,20 @@ export function walletAuth(maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS): MiddlewareH
 
     if (!sig || !tsRaw) {
       return c.json(
-        { success: false, error: 'x-wallet-signature and x-wallet-timestamp headers are required' },
+        { ok: false, error: 'x-wallet-signature and x-wallet-timestamp headers are required' },
         401,
       )
     }
 
     const ts = Number(tsRaw)
     if (!Number.isInteger(ts) || ts <= 0) {
-      return c.json({ success: false, error: 'x-wallet-timestamp must be a positive integer (Unix seconds)' }, 401)
+      return c.json({ ok: false, error: 'x-wallet-timestamp must be a positive integer (Unix seconds)' }, 401)
     }
 
     const ageSecs = Math.abs(Date.now() / 1000 - ts)
     if (ageSecs > maxAgeSeconds) {
       return c.json(
-        { success: false, error: `Signature expired (age ${Math.round(ageSecs)}s, max ${maxAgeSeconds}s)` },
+        { ok: false, error: `Signature expired (age ${Math.round(ageSecs)}s, max ${maxAgeSeconds}s)` },
         401,
       )
     }
@@ -64,11 +64,11 @@ export function walletAuth(maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS): MiddlewareH
     try {
       recovered = await recoverMessageAddress({ message, signature: sig as `0x${string}` })
     } catch {
-      return c.json({ success: false, error: 'Invalid signature' }, 401)
+      return c.json({ ok: false, error: 'Invalid signature' }, 401)
     }
 
     if (recovered.toLowerCase() !== address.toLowerCase()) {
-      return c.json({ success: false, error: 'Signature does not match address' }, 401)
+      return c.json({ ok: false, error: 'Signature does not match address' }, 401)
     }
 
     return next()
