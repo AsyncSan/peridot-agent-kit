@@ -110,7 +110,7 @@ describe('createVercelAITools', () => {
       // The fetch mock captures the URL — verify the custom base was used
       await (tools['list_markets'] as any).execute({})
       const calls = vi.mocked(fetch).mock.calls
-      const usedUrl = calls[0][0] as string
+      const usedUrl = calls[0]![0] as string
       expect(usedUrl).toContain(customUrl)
     })
   })

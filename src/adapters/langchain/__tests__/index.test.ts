@@ -97,7 +97,7 @@ describe('createLangChainTools', () => {
     it('returns only status tools when categories: ["status"]', () => {
       const tools = createLangChainTools({}, { categories: ['status'] })
       expect(tools).toHaveLength(1)
-      expect(tools[0].name).toBe('check_transaction_status')
+      expect(tools[0]!.name).toBe('check_transaction_status')
     })
 
     it('returns all tools when no categories filter is supplied', () => {
