@@ -21,10 +21,11 @@ const leaderboardQuery = z.object({
 })
 
 /**
- * GET /api/leaderboard?limit=50&chainId=56
- * Returns the top users ranked by total supplied USD.
+ * GET /api/leaderboard?limit=50
+ * Returns the top users ranked by total points earned.
  * limit: 1–100, default 50.
- * chainId: optional filter.
+ * chainId: accepted for validation but not applied — leaderboard_users has no
+ *          chain_id column; rankings are global across all chains.
  */
 app.get(
   '/',
@@ -35,11 +36,11 @@ app.get(
     }
   }),
   async (c) => {
-    const { limit, chainId } = c.req.valid('query')
-    const cacheKey = `leaderboard:${chainId ?? 'all'}:${limit}`
+    const { limit } = c.req.valid('query')
+    const cacheKey = `leaderboard:${limit}`
 
     try {
-      const data = await cache.getOrFetch(cacheKey, () => fetchLeaderboard(limit, chainId ?? null))
+      const data = await cache.getOrFetch(cacheKey, () => fetchLeaderboard(limit))
       return c.json({ ok: true, data }, 200, {
         'Cache-Control': 'public, s-maxage=60, stale-while-revalidate=120',
       })
@@ -53,60 +54,52 @@ app.get(
 interface LeaderboardEntry {
   rank: number
   address: string
-  totalSuppliedUsd: number
-  totalBorrowedUsd: number
-  netWorthUsd: number
   totalPoints: number
-  chainId: number | null
+  supplyCount: number
+  borrowCount: number
+  repayCount: number
+  redeemCount: number
   updatedAt: string
 }
 
 async function fetchLeaderboard(
   limit: number,
-  chainId: string | null,
 ): Promise<{ entries: LeaderboardEntry[]; total: number }> {
-  const rows = chainId
-    ? await sql`
-        SELECT wallet_address, rank, total_points,
-               total_supplied_usd, total_borrowed_usd, chain_id, updated_at
-        FROM ${sql(tables.leaderboardUsers)}
-        WHERE chain_id = ${chainId}
-        ORDER BY rank ASC
-        LIMIT ${limit}
-      `
-    : await sql`
-        SELECT wallet_address, rank, total_points,
-               total_supplied_usd, total_borrowed_usd, chain_id, updated_at
-        FROM ${sql(tables.leaderboardUsers)}
-        ORDER BY rank ASC
-        LIMIT ${limit}
-      `
+  // Rank is computed via ROW_NUMBER — leaderboard_users has no pre-computed rank column.
+  // The materialized view leaderboard_ranks_mainnet may exist but we use the fallback
+  // query here for portability across DB states.
+  const rows = await sql`
+    SELECT
+      wallet_address,
+      ROW_NUMBER() OVER (ORDER BY COALESCE(total_points, 0) DESC) AS rank,
+      COALESCE(total_points, 0)  AS total_points,
+      COALESCE(supply_count, 0)  AS supply_count,
+      COALESCE(borrow_count, 0)  AS borrow_count,
+      COALESCE(repay_count, 0)   AS repay_count,
+      COALESCE(redeem_count, 0)  AS redeem_count,
+      COALESCE(last_updated, created_at) AS updated_at
+    FROM ${sql(tables.leaderboardUsers)}
+    WHERE COALESCE(total_points, 0) > 0
+    ORDER BY rank ASC
+    LIMIT ${limit}
+  `
 
-  const countRows = chainId
-    ? await sql`
-        SELECT COUNT(*)::int AS total
-        FROM ${sql(tables.leaderboardUsers)}
-        WHERE chain_id = ${chainId}
-      `
-    : await sql`
-        SELECT COUNT(*)::int AS total
-        FROM ${sql(tables.leaderboardUsers)}
-      `
+  const countRows = await sql`
+    SELECT COUNT(*)::int AS total
+    FROM ${sql(tables.leaderboardUsers)}
+    WHERE COALESCE(total_points, 0) > 0
+  `
 
-  const entries: LeaderboardEntry[] = rows.map((r) => {
-    const supplied = Number(r.total_supplied_usd ?? 0)
-    const borrowed = Number(r.total_borrow_usd ?? r.total_borrowed_usd ?? 0)
-    return {
-      rank: Number(r.rank ?? 0),
-      address: String(r.wallet_address ?? ''),
-      totalSuppliedUsd: supplied,
-      totalBorrowedUsd: borrowed,
-      netWorthUsd: supplied - borrowed,
-      totalPoints: Number(r.total_points ?? 0),
-      chainId: r.chain_id != null ? Number(r.chain_id) : null,
-      updatedAt: r.updated_at ? new Date(r.updated_at as string).toISOString() : '',
-    }
-  })
+  const entries: LeaderboardEntry[] = rows.map((r) => ({
+    rank: Number(r.rank ?? 0),
+    address: String(r.wallet_address ?? ''),
+    totalPoints: Number(r.total_points ?? 0),
+    supplyCount: Number(r.supply_count ?? 0),
+    borrowCount: Number(r.borrow_count ?? 0),
+    repayCount: Number(r.repay_count ?? 0),
+    redeemCount: Number(r.redeem_count ?? 0),
+    updatedAt: r.updated_at ? new Date(r.updated_at as string).toISOString() : '',
+  }))
 
   return {
     entries,

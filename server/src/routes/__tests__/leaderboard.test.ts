@@ -33,21 +33,18 @@ function mockLeaderboard(rows: Record<string, unknown>[], total: number) {
     .mockReturnValueOnce('__id__').mockResolvedValueOnce([{ total }])      // count query
 }
 
-// When chainId is provided the queries also embed chainId as a bind param,
-// but the mock shape is identical.
-function mockLeaderboardWithChain(rows: Record<string, unknown>[], total: number) {
-  mockSql
-    .mockReturnValueOnce('__id__').mockResolvedValueOnce(rows)
-    .mockReturnValueOnce('__id__').mockResolvedValueOnce([{ total }])
-}
+// chainId is validated but not applied to the SQL (leaderboard_users has no chain_id
+// column — rankings are global). Mock shape is identical to the default path.
+const mockLeaderboardWithChain = mockLeaderboard
 
 const SAMPLE_ROW = {
   wallet_address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
   rank: '1',
   total_points: '1500',
-  total_supplied_usd: '50000',
-  total_borrowed_usd: '20000',
-  chain_id: '56',
+  supply_count: '5',
+  borrow_count: '2',
+  repay_count: '1',
+  redeem_count: '0',
   updated_at: '2024-03-01T00:00:00.000Z',
 }
 
@@ -55,9 +52,10 @@ const SAMPLE_ROW_2 = {
   wallet_address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8',
   rank: '2',
   total_points: '900',
-  total_supplied_usd: '25000',
-  total_borrowed_usd: '10000',
-  chain_id: '56',
+  supply_count: '3',
+  borrow_count: '1',
+  repay_count: '1',
+  redeem_count: '1',
   updated_at: '2024-03-01T00:00:00.000Z',
 }
 
@@ -88,10 +86,11 @@ describe('GET /api/leaderboard', () => {
     const e = entries[0]
     expect(typeof e.rank).toBe('number')
     expect(typeof e.address).toBe('string')
-    expect(typeof e.totalSuppliedUsd).toBe('number')
-    expect(typeof e.totalBorrowedUsd).toBe('number')
-    expect(typeof e.netWorthUsd).toBe('number')
     expect(typeof e.totalPoints).toBe('number')
+    expect(typeof e.supplyCount).toBe('number')
+    expect(typeof e.borrowCount).toBe('number')
+    expect(typeof e.repayCount).toBe('number')
+    expect(typeof e.redeemCount).toBe('number')
     expect(typeof e.updatedAt).toBe('string')
   })
 
@@ -108,16 +107,9 @@ describe('GET /api/leaderboard', () => {
     const { data: { entries } } = await res.json()
     const e = entries[0]
     expect(e.rank).toBe(1)
-    expect(e.totalSuppliedUsd).toBe(50000)
-    expect(e.totalBorrowedUsd).toBe(20000)
     expect(e.totalPoints).toBe(1500)
-  })
-
-  it('computes netWorthUsd as supplied - borrowed', async () => {
-    mockLeaderboard([SAMPLE_ROW], 1)
-    const res = await makeApp().request('/api/leaderboard')
-    const { data: { entries } } = await res.json()
-    expect(entries[0].netWorthUsd).toBe(30000)
+    expect(e.supplyCount).toBe(5)
+    expect(e.borrowCount).toBe(2)
   })
 
   it('updatedAt is a valid ISO-8601 string', async () => {

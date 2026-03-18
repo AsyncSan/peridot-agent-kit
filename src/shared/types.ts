@@ -81,9 +81,10 @@ export interface LeaderboardEntry {
   rank: number
   address: string
   totalPoints: number
-  totalSuppliedUsd: number
-  totalBorrowedUsd: number
-  netWorthUsd: number
+  supplyCount: number
+  borrowCount: number
+  repayCount: number
+  redeemCount: number
   updatedAt: string
 }
 

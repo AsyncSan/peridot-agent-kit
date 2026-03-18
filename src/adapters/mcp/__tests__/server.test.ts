@@ -90,8 +90,8 @@ const MOCK_LEADERBOARD = {
   ok: true,
   data: {
     entries: [
-      { rank: 1, address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', totalPoints: 1500, totalSuppliedUsd: 50000, totalBorrowedUsd: 20000, netWorthUsd: 30000, updatedAt: '2024-03-01T00:00:00.000Z' },
-      { rank: 2, address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', totalPoints: 900, totalSuppliedUsd: 25000, totalBorrowedUsd: 10000, netWorthUsd: 15000, updatedAt: '2024-03-01T00:00:00.000Z' },
+      { rank: 1, address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', totalPoints: 1500, supplyCount: 5, borrowCount: 2, repayCount: 1, redeemCount: 0, updatedAt: '2024-03-01T00:00:00.000Z' },
+      { rank: 2, address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', totalPoints: 900, supplyCount: 3, borrowCount: 1, repayCount: 1, redeemCount: 1, updatedAt: '2024-03-01T00:00:00.000Z' },
     ],
     total: 2,
   },
@@ -352,9 +352,10 @@ describe('MCP handler — get_leaderboard', () => {
     expect(typeof e.rank).toBe('number')
     expect(typeof e.address).toBe('string')
     expect(typeof e.totalPoints).toBe('number')
-    expect(typeof e.totalSuppliedUsd).toBe('number')
-    expect(typeof e.totalBorrowedUsd).toBe('number')
-    expect(typeof e.netWorthUsd).toBe('number')
+    expect(typeof e.supplyCount).toBe('number')
+    expect(typeof e.borrowCount).toBe('number')
+    expect(typeof e.repayCount).toBe('number')
+    expect(typeof e.redeemCount).toBe('number')
     expect(typeof e.updatedAt).toBe('string')
   })
 

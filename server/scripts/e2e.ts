@@ -537,12 +537,14 @@ async function runSuite(): Promise<TestResult[]> {
             typeof e['address'] === 'string' && (e['address'] as string).length > 0))
           results.push(assert(`leaderboard[${i}] → totalPoints is finite ≥ 0`,
             isFiniteNum(e['totalPoints']) && (e['totalPoints'] as number) >= 0))
-          results.push(assert(`leaderboard[${i}] → totalSuppliedUsd is finite ≥ 0`,
-            isFiniteNum(e['totalSuppliedUsd']) && (e['totalSuppliedUsd'] as number) >= 0))
-          results.push(assert(`leaderboard[${i}] → totalBorrowedUsd is finite ≥ 0`,
-            isFiniteNum(e['totalBorrowedUsd']) && (e['totalBorrowedUsd'] as number) >= 0))
-          results.push(assert(`leaderboard[${i}] → netWorthUsd is finite`,
-            isFiniteNum(e['netWorthUsd'])))
+          results.push(assert(`leaderboard[${i}] → supplyCount is finite ≥ 0`,
+            isFiniteNum(e['supplyCount']) && (e['supplyCount'] as number) >= 0))
+          results.push(assert(`leaderboard[${i}] → borrowCount is finite ≥ 0`,
+            isFiniteNum(e['borrowCount']) && (e['borrowCount'] as number) >= 0))
+          results.push(assert(`leaderboard[${i}] → repayCount is finite ≥ 0`,
+            isFiniteNum(e['repayCount']) && (e['repayCount'] as number) >= 0))
+          results.push(assert(`leaderboard[${i}] → redeemCount is finite ≥ 0`,
+            isFiniteNum(e['redeemCount']) && (e['redeemCount'] as number) >= 0))
           results.push(assert(`leaderboard[${i}] → updatedAt is valid ISO date`,
             typeof e['updatedAt'] === 'string' && !isNaN(Date.parse(e['updatedAt'] as string)),
             `updatedAt=${e['updatedAt']}`))
