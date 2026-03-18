@@ -283,6 +283,20 @@ describe('buildCrossChainWithdrawIntent', () => {
     })
   })
 
+  describe('estimatedGas fallback', () => {
+    it('returns "unknown" when biconomy response omits estimatedGas', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ instructions: [], route: {} }), // no estimatedGas
+      }))
+      const result = await buildCrossChainWithdrawIntent(
+        { userAddress: USER, asset: 'USDC', amount: '200' },
+        config,
+      )
+      expect(result.estimatedGas).toBe('unknown')
+    })
+  })
+
   describe('error cases', () => {
     it('throws when biconomyApiKey is not configured', async () => {
       await expect(

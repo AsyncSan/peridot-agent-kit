@@ -1,9 +1,10 @@
 import { z } from 'zod'
 import { PeridotApiClient } from '../../../shared/api-client'
 import type { PeridotConfig, UserPosition } from '../../../shared/types'
+import { evmAddress } from '../../../shared/zod-utils'
 
 export const getUserPositionSchema = z.object({
-  address: z.string().describe('The wallet address (0x...) to look up'),
+  address: evmAddress.describe('The wallet address (0x...) to look up'),
 })
 
 export type GetUserPositionInput = z.infer<typeof getUserPositionSchema>

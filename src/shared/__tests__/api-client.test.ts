@@ -13,7 +13,7 @@ const MOCK_METRICS = {
 }
 
 const MOCK_PORTFOLIO = {
-  success: true,
+  ok: true,
   data: {
     portfolio: { currentValue: 6000, totalSupplied: 10000, totalBorrowed: 4000, netApy: 3.5, healthFactor: 2.5 },
     assets: [],
@@ -55,7 +55,7 @@ describe('PeridotApiClient.getMarketMetrics', () => {
     const fetchMock = makeSuccessFetch(MOCK_METRICS)
     vi.stubGlobal('fetch', fetchMock)
     await new PeridotApiClient(config).getMarketMetrics()
-    expect(fetchMock).toHaveBeenCalledWith(`${BASE_URL}/api/markets/metrics`)
+    expect(fetchMock).toHaveBeenCalledWith(`${BASE_URL}/api/markets/metrics`, expect.objectContaining({ signal: expect.any(AbortSignal) }))
   })
 
   it('throws when HTTP response is not ok', async () => {
@@ -67,12 +67,19 @@ describe('PeridotApiClient.getMarketMetrics', () => {
     vi.stubGlobal('fetch', makeSuccessFetch({ ok: false, error: 'db_down' }))
     await expect(new PeridotApiClient(config).getMarketMetrics()).rejects.toThrow('db_down')
   })
+
+  it('throws with "unknown" fallback when ok: false and no error field', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ ok: false }))
+    await expect(new PeridotApiClient(config).getMarketMetrics()).rejects.toThrow('unknown')
+  })
 })
+
+const VALID_ADDRESS = '0xDeAdBeEf00000000000000000000000000000001'
 
 describe('PeridotApiClient.getUserPortfolio', () => {
   it('returns portfolio data on success', async () => {
     vi.stubGlobal('fetch', makeSuccessFetch(MOCK_PORTFOLIO))
-    const data = await new PeridotApiClient(config).getUserPortfolio('0xabc')
+    const data = await new PeridotApiClient(config).getUserPortfolio(VALID_ADDRESS)
     expect(data.portfolio.totalSupplied).toBe(10000)
     expect(data.portfolio.healthFactor).toBe(2.5)
   })
@@ -80,19 +87,33 @@ describe('PeridotApiClient.getUserPortfolio', () => {
   it('includes the address as a query param', async () => {
     const fetchMock = makeSuccessFetch(MOCK_PORTFOLIO)
     vi.stubGlobal('fetch', fetchMock)
-    await new PeridotApiClient(config).getUserPortfolio('0xDeAdBeEf')
+    await new PeridotApiClient(config).getUserPortfolio(VALID_ADDRESS)
     const calledUrl = (fetchMock.mock.calls[0] as [string])[0]
-    expect(calledUrl).toContain('address=0xDeAdBeEf')
+    expect(calledUrl).toContain(`address=${VALID_ADDRESS}`)
+  })
+
+  it('rejects an invalid address before fetching', async () => {
+    const fetchMock = vi.fn()
+    vi.stubGlobal('fetch', fetchMock)
+    await expect(new PeridotApiClient(config).getUserPortfolio('0xabc')).rejects.toThrow(
+      'Invalid address format',
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('throws when HTTP response is not ok', async () => {
     vi.stubGlobal('fetch', makeErrorFetch(503))
-    await expect(new PeridotApiClient(config).getUserPortfolio('0xabc')).rejects.toThrow('503')
+    await expect(new PeridotApiClient(config).getUserPortfolio(VALID_ADDRESS)).rejects.toThrow('503')
   })
 
-  it('throws when success: false', async () => {
-    vi.stubGlobal('fetch', makeSuccessFetch({ success: false, error: 'not_found' }))
-    await expect(new PeridotApiClient(config).getUserPortfolio('0xabc')).rejects.toThrow('not_found')
+  it('throws when ok: false', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ ok: false, error: 'not_found' }))
+    await expect(new PeridotApiClient(config).getUserPortfolio(VALID_ADDRESS)).rejects.toThrow('not_found')
+  })
+
+  it('throws with "unknown" fallback when ok: false and no error field', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ ok: false }))
+    await expect(new PeridotApiClient(config).getUserPortfolio(VALID_ADDRESS)).rejects.toThrow('unknown')
   })
 })
 
@@ -146,7 +167,7 @@ describe('PeridotApiClient.biconomyCompose', () => {
 
 describe('PeridotApiClient.getMarketApy', () => {
   const MOCK_APY_ALL = {
-    success: true,
+    ok: true,
     data: {
       usdc: {
         56: { supplyApy: 3.21, borrowApy: 5.67, peridotSupplyApy: 1.10, peridotBorrowApy: 0.80, boostSourceSupplyApy: 0.50, boostRewardsSupplyApy: 0.20, totalSupplyApy: 5.01, netBorrowApy: 4.87, timestamp: '2024-01-01T00:00:00Z' },
@@ -211,13 +232,18 @@ describe('PeridotApiClient.getMarketApy', () => {
     await expect(new PeridotApiClient(config).getMarketApy()).rejects.toThrow('503')
   })
 
-  it('throws when success: false', async () => {
-    vi.stubGlobal('fetch', makeSuccessFetch({ success: false, error: 'apy_unavailable' }))
+  it('throws when ok: false', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ ok: false, error: 'apy_unavailable' }))
     await expect(new PeridotApiClient(config).getMarketApy()).rejects.toThrow('apy_unavailable')
   })
 
+  it('throws with "unknown" fallback when ok: false and no error field', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ ok: false }))
+    await expect(new PeridotApiClient(config).getMarketApy()).rejects.toThrow('unknown')
+  })
+
   it('returns empty object when data is empty', async () => {
-    vi.stubGlobal('fetch', makeSuccessFetch({ success: true, data: {} }))
+    vi.stubGlobal('fetch', makeSuccessFetch({ ok: true, data: {} }))
     const data = await new PeridotApiClient(config).getMarketApy()
     expect(data).toEqual({})
   })
@@ -255,5 +281,18 @@ describe('PeridotApiClient.biconomyGetStatus', () => {
     vi.stubGlobal('fetch', makeSuccessFetch({ status: 'QUEUED' }))
     const status = await new PeridotApiClient(config).biconomyGetStatus('0xsuper')
     expect(status.status).toBe('pending')
+  })
+
+  it('returns pending when status field is absent', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({}))
+    const status = await new PeridotApiClient(config).biconomyGetStatus('0xsuper')
+    expect(status.status).toBe('pending')
+  })
+
+  it('uses "Unknown error" fallback when failed status has no message field', async () => {
+    vi.stubGlobal('fetch', makeSuccessFetch({ status: 'FAILED' }))
+    const result = await new PeridotApiClient(config).biconomyGetStatus('0xsuper')
+    expect(result.status).toBe('failed')
+    expect(result.error).toBe('Unknown error')
   })
 })

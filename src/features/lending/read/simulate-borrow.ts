@@ -1,17 +1,19 @@
+import Decimal from 'decimal.js'
 import { z } from 'zod'
 import { PeridotApiClient } from '../../../shared/api-client'
-import { BSC_MAINNET_CHAIN_ID } from '../../../shared/constants'
+import { BSC_MAINNET_CHAIN_ID, isHubChain } from '../../../shared/constants'
 import type { PeridotConfig, SimulateBorrowResult } from '../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../shared/zod-utils'
 
 export const simulateBorrowSchema = z.object({
-  address: z.string().describe('The wallet address planning to borrow'),
+  address: evmAddress.describe('The wallet address planning to borrow'),
   asset: z.string().describe('The asset to borrow, e.g. "USDC", "WETH"'),
-  amount: z
-    .string()
-    .describe('Human-readable borrow amount, e.g. "500" for 500 USDC'),
+  amount: tokenAmount.describe('Human-readable borrow amount, e.g. "500" for 500 USDC'),
   chainId: z
     .number()
+    .int()
     .default(BSC_MAINNET_CHAIN_ID)
+    .refine(isHubChain, { message: 'chainId must be a hub chain (56=BSC, 143=Monad, 1868=Somnia).' })
     .describe('Hub chain ID. Defaults to BSC (56).'),
 })
 
@@ -53,16 +55,20 @@ export async function simulateBorrow(
     throw new Error(`No market data for ${assetUpper} on chain ${input.chainId}`)
   }
 
-  const borrowAmountHuman = parseFloat(input.amount)
-  if (isNaN(borrowAmountHuman) || borrowAmountHuman <= 0) {
+  const borrowAmountRaw = parseFloat(input.amount)
+  if (isNaN(borrowAmountRaw) || borrowAmountRaw <= 0) {
     throw new Error(`Invalid borrow amount: "${input.amount}"`)
   }
 
-  const borrowAmountUsd = borrowAmountHuman * metric.priceUsd
+  const borrowAmount = new Decimal(input.amount)
+  const borrowAmountUsd = borrowAmount.mul(metric.priceUsd).toNumber()
   const { totalSupplied, totalBorrowed } = portfolioData.portfolio
 
-  const currentHF = totalBorrowed > 0 ? totalSupplied / totalBorrowed : null
-  const projectedBorrowedUsd = totalBorrowed + borrowAmountUsd
+  const currentHF =
+    totalBorrowed > 0
+      ? new Decimal(totalSupplied).div(totalBorrowed).toNumber()
+      : null
+  const projectedBorrowedUsd = new Decimal(totalBorrowed).add(borrowAmountUsd)
 
   if (totalSupplied === 0) {
     return {
@@ -77,10 +83,13 @@ export async function simulateBorrow(
     }
   }
 
-  const projectedHF = totalSupplied / projectedBorrowedUsd
+  const projectedHF = new Decimal(totalSupplied).div(projectedBorrowedUsd).toNumber()
 
   // Max safe borrow keeps projected HF at the "safe" threshold (2.0)
-  const maxSafeBorrowUsd = Math.max(0, totalSupplied / RISK_THRESHOLDS.safe - totalBorrowed)
+  const maxSafeBorrowUsd = Decimal.max(
+    0,
+    new Decimal(totalSupplied).div(RISK_THRESHOLDS.safe).sub(totalBorrowed),
+  ).toNumber()
 
   const riskLevel = classifyRisk(projectedHF)
   const isSafe = projectedHF >= RISK_THRESHOLDS.high

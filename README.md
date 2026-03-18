@@ -39,7 +39,7 @@ This toolkit solves that by providing **AI-optimized wrappers** around the Perid
 The core tools are framework-agnostic, but we provide ready-to-use wrappers for:
 - [x] LangChain (`@peridot/agent-kit/langchain`)
 - [x] Vercel AI SDK (`@peridot/agent-kit/vercel-ai`)
-- [x] MCP Server — works with Claude Desktop, Cursor, and any MCP client (`@peridot/agent-kit/mcp`)
+- [x] MCP Server - works with Claude Desktop, Cursor, and any MCP client (`@peridot/agent-kit/mcp`)
 - [ ] ElizaOS plugin *(Coming soon)*
 
 ---
@@ -66,7 +66,7 @@ npm install ai
 
 ## 🖥️ Running the MCP Server
 
-The MCP server exposes all Peridot tools over [Model Context Protocol](https://modelcontextprotocol.io), letting you connect directly from Claude Desktop, Cursor, or any MCP-compatible client — no code required.
+The MCP server exposes all Peridot tools over [Model Context Protocol](https://modelcontextprotocol.io), letting you connect directly from Claude Desktop, Cursor, or any MCP-compatible client - no code required.
 
 ### Environment variables
 
@@ -78,7 +78,7 @@ The MCP server exposes all Peridot tools over [Model Context Protocol](https://m
 | `PERIDOT_RPC_BSC` | No | Custom BSC RPC URL (falls back to public endpoint) |
 | `PERIDOT_RPC_ARB` | No | Custom Arbitrum RPC URL |
 
-### Option 1 — Claude Desktop (recommended for personal use)
+### Option 1 - Claude Desktop (recommended for personal use)
 
 Add this to `~/.claude/claude_desktop_config.json`:
 
@@ -87,7 +87,7 @@ Add this to `~/.claude/claude_desktop_config.json`:
   "mcpServers": {
     "peridot": {
       "command": "npx",
-      "args": ["@peridot/agent-kit/mcp"],
+      "args": ["-y", "-p", "@peridot/agent-kit", "peridot-mcp"],
       "env": {
         "BICONOMY_API_KEY": "your-key-here"
       }
@@ -98,7 +98,7 @@ Add this to `~/.claude/claude_desktop_config.json`:
 
 Restart Claude Desktop. The Peridot tools will appear automatically.
 
-### Option 2 — Run locally from source
+### Option 2 - Run locally from source
 
 ```bash
 git clone https://github.com/AsyncSan/peridot-agent-kit
@@ -115,7 +115,7 @@ Or during development (no build step):
 BICONOMY_API_KEY=your-key pnpm tsx src/adapters/mcp/server.ts
 ```
 
-### Option 3 — Production / self-hosted
+### Option 3 - Production / self-hosted
 
 Build the package and run the compiled output with a process manager:
 
@@ -141,13 +141,13 @@ These tools are formatted with clear descriptions and strict JSON schemas so you
 
 ### 🔍 Read & Simulate (Risk-Free)
 
-`get_market_rates` — Full rate breakdown for an asset: base supply/borrow APY, PERIDOT reward APY, boost APY (Morpho/PancakeSwap/Magma), total supply APY, net borrow APY, TVL, utilization, liquidity, price, and collateral factor.
+`get_market_rates` - Full rate breakdown for an asset: base supply/borrow APY, PERIDOT reward APY, boost APY (Morpho/PancakeSwap/Magma), total supply APY, net borrow APY, TVL, utilization, liquidity, price, and collateral factor.
 
-`get_user_position` — Total collateral, total debt, and health factor for a wallet.
+`get_user_position` - Total collateral, total debt, and health factor for a wallet.
 
-`simulate_borrow` — Projects the new health factor and liquidation risk before a borrow is submitted.
+`simulate_borrow` - Projects the new health factor and liquidation risk before a borrow is submitted.
 
-`get_account_liquidity` — On-chain authoritative liquidity and shortfall from the Peridottroller contract.
+`get_account_liquidity` - On-chain authoritative liquidity and shortfall from the Peridot Comptroller contract.
 
 ### ✍️ Transaction Intents (Require User Signature)
 
@@ -163,7 +163,7 @@ These tools return calldata payloads. Nothing is sent to the chain until the use
 
 **Status:**
 
-`check_transaction_status` — Poll a Biconomy super-transaction hash for completion.
+`check_transaction_status` - Poll a Biconomy super-transaction hash for completion.
 
 ---
 
@@ -208,105 +208,120 @@ const { text } = await generateText({
 
 ## 🔌 Adding a New Adapter
 
-All tools share a common `ToolDefinition` interface. Adding support for a new framework means writing one function that maps that interface to whatever the framework expects.
+An adapter's only job: iterate over the tool registry and wrap each `execute` function in whatever calling convention your framework expects.
 
-### How it works
-
-Every tool is a plain object:
+### The contract
 
 ```typescript
 interface ToolDefinition<TInput, TOutput> {
-  name: string           // snake_case identifier
-  description: string    // shown to the LLM
-  category: ToolCategory // 'lending' | 'margin' | ...
-  inputSchema: ZodType   // Zod schema — validates input and generates JSON Schema
+  name: string           // snake_case tool identifier
+  description: string    // shown to the LLM — do not truncate
+  category: ToolCategory // 'lending' | 'margin' | 'status' | ...
+  inputSchema: ZodType   // Zod schema — handles validation and JSON Schema generation
   execute: (input: TInput, config: PeridotConfig) => Promise<TOutput>
 }
 ```
 
-An adapter's only job is to wrap `execute` in whatever calling convention the framework requires, and pass the `inputSchema` to whatever type system the framework uses.
+Use `src/adapters/langchain/index.ts` and `src/adapters/vercel-ai/index.ts` as canonical examples. Both are under 65 lines.
 
-### Step-by-step
+### Implementation
 
-**1. Create the adapter file**
+**1. Create `src/adapters/my-framework/index.ts`**
 
-```
-src/adapters/<framework>/index.ts
-```
+Copy the pattern used by the existing adapters. The key difference between frameworks is their return shape:
 
-**2. Import the tool registry and map over it**
+- **LangChain** expects `StructuredTool[]` (an array of class instances)
+- **Vercel AI SDK** expects `Record<string, Tool>` (an object keyed by tool name)
+
+Check your framework's docs and pick the right shape. The internals are identical:
 
 ```typescript
 import { lendingTools } from '../../features/lending/tools'
 import type { PeridotConfig, ToolDefinition } from '../../shared/types'
+import type { z } from 'zod'
+
+// List which feature modules this adapter includes.
+// Explicit opt-in is intentional: adapters control their own scope.
+function allTools(config: PeridotConfig): ToolDefinition[] {
+  return [
+    ...lendingTools,
+    // ...marginTools,     // Phase 2 — uncomment when released
+  ]
+}
 
 export function createMyFrameworkTools(config: PeridotConfig = {}) {
-  const tools = [...lendingTools] // add ...marginTools etc. as features are released
-
-  return tools.map((tool) => {
-    return myFramework.defineTool({
+  return allTools(config).map((tool) =>
+    myFramework.register({
       name: tool.name,
       description: tool.description,
-      // Most frameworks accept a Zod schema or its JSON Schema equivalent:
-      schema: tool.inputSchema,
-      // jsonSchema: zodToJsonSchema(tool.inputSchema),  // if the framework needs raw JSON Schema
-      handler: (input: unknown) => tool.execute(input, config),
+      // Pass Zod schema directly if the framework supports it:
+      schema: tool.inputSchema as z.ZodObject<z.ZodRawShape>,
+      // Or convert to JSON Schema if it doesn't:
+      // schema: zodToJsonSchema(tool.inputSchema),
+      execute: (input: unknown) => tool.execute(input, config),
     })
-  })
+  )
 }
 ```
 
-**3. Add the export to `package.json`**
-
-```json
-"exports": {
-  "./my-framework": {
-    "import": "./dist/adapters/my-framework/index.js",
-    "require": "./dist/adapters/my-framework/index.cjs",
-    "types": "./dist/adapters/my-framework/index.d.ts"
-  }
-}
-```
-
-**4. Add the entry point to `tsup.config.ts`**
+Optionally support category filtering (LangChain adapter does this):
 
 ```typescript
-entry: [
-  'src/index.ts',
-  'src/adapters/langchain/index.ts',
-  'src/adapters/vercel-ai/index.ts',
-  'src/adapters/my-framework/index.ts',  // add this
-  'src/adapters/mcp/server.ts',
-],
-```
-
-**5. Add the peer dependency** (if the framework requires one)
-
-```json
-"peerDependencies": {
-  "my-framework-sdk": ">=1.0.0"
-},
-"peerDependenciesMeta": {
-  "my-framework-sdk": { "optional": true }
+export function createMyFrameworkTools(
+  config: PeridotConfig = {},
+  options?: { categories?: string[] },
+) {
+  const tools = options?.categories
+    ? allTools(config).filter((t) => options.categories!.includes(t.category))
+    : allTools(config)
+  // ...map over tools
 }
 ```
 
-That's it. The new adapter will automatically expose every tool from the registry, including any future features added by the Peridot team.
+**2. Register in `src/adapters/mcp/server.ts`**
 
-### Notes
+The MCP server has its own `allTools` array. Add new feature modules there too so they appear in Claude Desktop and other MCP clients:
 
-- If the framework needs **JSON Schema** instead of Zod, use `zodToJsonSchema(tool.inputSchema)` from `zod-to-json-schema` (already a dependency).
-- New feature modules (e.g. `marginTools`) are not auto-included — you must explicitly spread them into your tools array. This is intentional so adapters can opt in per-feature.
+```typescript
+const allTools: ToolDefinition[] = [
+  ...lendingTools,
+  // ...marginTools,  // add here when Phase 2 ships
+]
+```
+
+**3. Wire up the three config files**
+
+```json
+// package.json — add export
+"./my-framework": {
+  "import": "./dist/adapters/my-framework/index.js",
+  "require": "./dist/adapters/my-framework/index.cjs",
+  "types":   "./dist/adapters/my-framework/index.d.ts"
+}
+```
+
+```typescript
+// tsup.config.ts — add entry point
+'src/adapters/my-framework/index': 'src/adapters/my-framework/index.ts',
+```
+
+```json
+// package.json — add optional peer dep if the framework SDK is external
+"peerDependencies": { "my-framework-sdk": ">=1.0.0" },
+"peerDependenciesMeta": { "my-framework-sdk": { "optional": true } }
+```
+
+That's it. The new adapter automatically exposes every tool in its `allTools` list, including future features when they're spread in.
 
 ---
 
 ## 🗺️ Roadmap
 
-Phase 1: Core Money Market (✅ Active) — Lend, Borrow, Repay, Withdraw, Cross-chain.
+Phase 1: Core Money Market (✅ Active) - Lend, Borrow, Repay, Withdraw, Cross-chain.
 
-Phase 2: Margin & Leverage (🚧 In Development) — 1-click looping strategies, leverage intents, and advanced swap routing.
+Phase 2: Margin & Leverage (🚧 In Development) - 1-click looping strategies, leverage intents, and advanced swap routing.
 
-Phase 3: Automated Liquidations — Tools for specialized keeper bots.
+Phase 3: Automated Liquidations - Tools for specialized keeper bots.
 
 ---
 

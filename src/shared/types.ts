@@ -66,6 +66,17 @@ export interface MarketRates {
   updatedAt: string
 }
 
+export interface MarketSummary {
+  asset: string
+  chainId: number
+  priceUsd: number
+  tvlUsd: number
+  utilizationPct: number
+  liquidityUsd: number
+  collateralFactorPct: number
+  updatedAt: string
+}
+
 export interface UserPosition {
   address: string
   totalSuppliedUsd: number

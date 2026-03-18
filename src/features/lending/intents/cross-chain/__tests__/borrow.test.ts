@@ -235,6 +235,20 @@ describe('buildCrossChainBorrowIntent', () => {
     })
   })
 
+  describe('estimatedGas fallback', () => {
+    it('returns "unknown" when biconomy response omits estimatedGas', async () => {
+      vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+        ok: true,
+        json: () => Promise.resolve({ instructions: [], route: {} }), // no estimatedGas
+      }))
+      const result = await buildCrossChainBorrowIntent(
+        { userAddress: USER, collateralAssets: ['WETH'], borrowAsset: 'USDC', borrowAmount: '500' },
+        config,
+      )
+      expect(result.estimatedGas).toBe('unknown')
+    })
+  })
+
   describe('error cases', () => {
     it('throws when biconomyApiKey is not configured', async () => {
       await expect(

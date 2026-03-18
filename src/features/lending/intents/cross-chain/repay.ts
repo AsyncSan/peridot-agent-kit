@@ -7,25 +7,29 @@ import {
   getAssetDecimals,
   getPTokenAddress,
   getUnderlyingTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type {
   CrossChainIntent,
   PeridotConfig,
   RuntimeErc20Balance,
 } from '../../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../../shared/zod-utils'
 
 export const crossChainRepaySchema = z.object({
-  userAddress: z.string().describe('The wallet address repaying the debt'),
+  userAddress: evmAddress.describe('The wallet address repaying the debt'),
   sourceChainId: z
     .number()
+    .int()
     .default(ARBITRUM_CHAIN_ID)
-    .describe(
-      'Spoke chain the user holds repayment tokens on, e.g. 42161=Arbitrum, 8453=Base',
-    ),
+    .refine((id) => !isHubChain(id), {
+      message:
+        'sourceChainId must be a spoke chain (e.g. 42161=Arbitrum, 8453=Base). Use build_hub_repay_intent for hub chains (56, 143, 1868).',
+    })
+    .describe('Spoke chain the user holds repayment tokens on, e.g. 42161=Arbitrum, 8453=Base'),
   asset: z.string().describe('Asset to repay, e.g. "USDC", "USDT"'),
-  amount: z.string().describe('Human-readable amount to repay, e.g. "500" for 500 USDC'),
-  repayForAddress: z
-    .string()
+  amount: tokenAmount.describe('Human-readable amount to repay, e.g. "500" for 500 USDC'),
+  repayForAddress: evmAddress
     .optional()
     .describe('Repay on behalf of another address. Defaults to userAddress.'),
   slippage: z.number().default(0.01).describe('Bridge slippage tolerance. Defaults to 1%.'),

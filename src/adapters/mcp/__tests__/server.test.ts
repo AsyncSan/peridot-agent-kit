@@ -62,7 +62,7 @@ const MOCK_METRICS = {
 }
 
 const MOCK_APY = {
-  success: true,
+  ok: true,
   data: {
     usdc: {
       56: {
@@ -77,7 +77,7 @@ const MOCK_APY = {
 }
 
 const MOCK_PORTFOLIO = {
-  success: true,
+  ok: true,
   data: {
     portfolio: { currentValue: 10_000, totalSupplied: 12_000, totalBorrowed: 5_000, netApy: 2.5, healthFactor: 2.4 },
     assets: [{ assetId: 'usdc', supplied: 12_000, borrowed: 5_000, net: 7_000, percentage: 100 }],
@@ -107,6 +107,7 @@ afterEach(() => { vi.unstubAllGlobals() })
 
 describe('tool registry', () => {
   const EXPECTED_TOOLS = [
+    'list_markets',
     'get_market_rates',
     'get_user_position',
     'simulate_borrow',
@@ -163,7 +164,7 @@ describe('tool registry', () => {
 
   it('lending tools are categorised correctly', () => {
     const lendingNames = [
-      'get_market_rates', 'get_user_position', 'simulate_borrow', 'get_account_liquidity',
+      'list_markets', 'get_market_rates', 'get_user_position', 'simulate_borrow', 'get_account_liquidity',
       'build_hub_supply_intent', 'build_hub_borrow_intent', 'build_hub_repay_intent',
       'build_hub_withdraw_intent', 'build_enable_collateral_intent', 'build_disable_collateral_intent',
       'build_cross_chain_supply_intent', 'build_cross_chain_borrow_intent',
@@ -176,6 +177,78 @@ describe('tool registry', () => {
 
   it('check_transaction_status is categorised as "status"', () => {
     expect(findTool('check_transaction_status').category).toBe('status')
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Unit — description content (safety-critical routing rules)
+//
+// These tests pin the key phrases that steer an LLM agent toward safe behaviour.
+// If a description is rewritten and a safety precondition is quietly dropped,
+// the test breaks — making the problem visible before it reaches production.
+// ---------------------------------------------------------------------------
+
+describe('tool descriptions — safety preconditions', () => {
+  it('get_user_position flags that healthFactor is a simplified estimate', () => {
+    const desc = findTool('get_user_position').description.toLowerCase()
+    // Must communicate overestimation so agents don't treat it as authoritative
+    expect(desc).toMatch(/simplified|estimate/)
+  })
+
+  it('get_user_position directs agents to get_account_liquidity for precision', () => {
+    const desc = findTool('get_user_position').description
+    expect(desc).toContain('get_account_liquidity')
+  })
+
+  it('simulate_borrow requires calling it before borrow intents (ALWAYS directive)', () => {
+    const desc = findTool('simulate_borrow').description
+    expect(desc).toContain('ALWAYS')
+  })
+
+  it('simulate_borrow gates on isSafe=false / high-risk levels', () => {
+    const desc = findTool('simulate_borrow').description
+    expect(desc).toContain('isSafe')
+  })
+
+  it('build_hub_borrow_intent requires simulate_borrow pre-check', () => {
+    const desc = findTool('build_hub_borrow_intent').description
+    expect(desc).toContain('simulate_borrow')
+  })
+
+  it('build_cross_chain_borrow_intent requires simulate_borrow pre-check', () => {
+    const desc = findTool('build_cross_chain_borrow_intent').description
+    expect(desc).toContain('simulate_borrow')
+  })
+
+  it('build_hub_supply_intent names the valid hub chain IDs', () => {
+    const desc = findTool('build_hub_supply_intent').description
+    // All three hub chains must be named so the agent routes correctly
+    expect(desc).toContain('56')
+    expect(desc).toContain('143')
+    expect(desc).toContain('1868')
+  })
+
+  it('build_hub_supply_intent directs non-hub chains to cross-chain tool', () => {
+    const desc = findTool('build_hub_supply_intent').description
+    expect(desc).toContain('build_cross_chain_supply_intent')
+  })
+
+  it('build_cross_chain_supply_intent names the hub chain IDs it must NOT be used for', () => {
+    const desc = findTool('build_cross_chain_supply_intent').description
+    // Must explicitly exclude hub chains so agents don't misroute
+    expect(desc).toContain('56')
+    expect(desc).toContain('143')
+    expect(desc).toContain('1868')
+  })
+
+  it('build_disable_collateral_intent gates on a position check first', () => {
+    const desc = findTool('build_disable_collateral_intent').description.toLowerCase()
+    expect(desc).toMatch(/get_account_liquidity|get_user_position/)
+  })
+
+  it('get_user_position has ALWAYS call-before directive for borrow/withdraw/repay', () => {
+    const desc = findTool('get_user_position').description
+    expect(desc).toContain('ALWAYS')
   })
 })
 
@@ -215,6 +288,38 @@ describe('input schema validation', () => {
 // ---------------------------------------------------------------------------
 // Integration — MCP handler pattern (execute via the server wrapper)
 // ---------------------------------------------------------------------------
+
+describe('MCP handler — list_markets', () => {
+  it('returns a list of markets with count', async () => {
+    const tool = findTool('list_markets')
+    const response = await mcpExecute(tool, {})
+    expect(response.isError).toBe(false)
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(typeof parsed.count).toBe('number')
+    expect(Array.isArray(parsed.markets)).toBe(true)
+  })
+
+  it('each market has all expected fields', async () => {
+    const tool = findTool('list_markets')
+    const response = await mcpExecute(tool, {})
+    const parsed = JSON.parse(response.content[0]!.text)
+    const market = parsed.markets[0]
+    expect(typeof market.asset).toBe('string')
+    expect(typeof market.chainId).toBe('number')
+    expect(typeof market.tvlUsd).toBe('number')
+    expect(typeof market.priceUsd).toBe('number')
+    expect(typeof market.utilizationPct).toBe('number')
+    expect(typeof market.liquidityUsd).toBe('number')
+    expect(typeof market.collateralFactorPct).toBe('number')
+  })
+
+  it('filters by chainId when provided', async () => {
+    const tool = findTool('list_markets')
+    const response = await mcpExecute(tool, { chainId: 56 })
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(parsed.markets.every((m: any) => m.chainId === 56)).toBe(true)
+  })
+})
 
 describe('MCP handler — get_market_rates', () => {
   it('returns a text content block with JSON', async () => {

@@ -160,8 +160,8 @@ describe('getAssetDecimals', () => {
     expect(getAssetDecimals('AUSD')).toBe(18)
   })
 
-  it('defaults to 18 for unknown assets', () => {
-    expect(getAssetDecimals('UNKNOWN')).toBe(18)
+  it('throws for unknown assets', () => {
+    expect(() => getAssetDecimals('UNKNOWN')).toThrow('Unknown asset "UNKNOWN"')
   })
 
   it('is case-insensitive', () => {

@@ -89,8 +89,15 @@ for (const t of allTools) {
     t.description,
     schema,
     async (input: unknown) => {
+      const parsed = t.inputSchema.safeParse(input)
+      if (!parsed.success) {
+        return {
+          content: [{ type: 'text' as const, text: `Invalid input: ${parsed.error.message}` }],
+          isError: true,
+        }
+      }
       try {
-        const result = await t.execute(input, config)
+        const result = await t.execute(parsed.data, config)
         return {
           content: [{ type: 'text' as const, text: JSON.stringify(result, bigintReplacer, 2) }],
         }

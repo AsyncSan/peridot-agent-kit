@@ -5,18 +5,22 @@ import {
   BSC_MAINNET_CHAIN_ID,
   getControllerAddress,
   getPTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type { HubTransactionIntent, PeridotConfig } from '../../../../shared/types'
+import { evmAddress } from '../../../../shared/zod-utils'
 
 export const hubEnableCollateralSchema = z.object({
-  userAddress: z.string().describe('The wallet address enabling collateral'),
+  userAddress: evmAddress.describe('The wallet address enabling collateral'),
   assets: z
     .array(z.string())
     .min(1)
     .describe('Assets to enable as collateral, e.g. ["WETH", "USDC"]'),
   chainId: z
     .number()
+    .int()
     .default(BSC_MAINNET_CHAIN_ID)
+    .refine(isHubChain, { message: 'chainId must be a hub chain (56=BSC, 143=Monad, 1868=Somnia).' })
     .describe('Hub chain ID. Defaults to BSC (56).'),
 })
 

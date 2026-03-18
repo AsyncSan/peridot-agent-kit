@@ -15,7 +15,7 @@ const METRICS = {
 
 function makePortfolio(totalSupplied: number, totalBorrowed: number) {
   return {
-    success: true,
+    ok: true,
     data: {
       portfolio: {
         currentValue: totalSupplied - totalBorrowed,

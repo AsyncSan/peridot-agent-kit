@@ -1,3 +1,4 @@
+import Decimal from 'decimal.js'
 import { z } from 'zod'
 import { createPublicClient, http } from 'viem'
 import { COMPTROLLER_ABI } from '../../../shared/abis'
@@ -5,14 +6,18 @@ import {
   BSC_MAINNET_CHAIN_ID,
   DEFAULT_RPC_URLS,
   getControllerAddress,
+  isHubChain,
 } from '../../../shared/constants'
 import type { AccountLiquidity, PeridotConfig } from '../../../shared/types'
+import { evmAddress } from '../../../shared/zod-utils'
 
 export const getAccountLiquiditySchema = z.object({
-  address: z.string().describe('The wallet address to check'),
+  address: evmAddress.describe('The wallet address to check'),
   chainId: z
     .number()
+    .int()
     .default(BSC_MAINNET_CHAIN_ID)
+    .refine(isHubChain, { message: 'chainId must be a hub chain (56=BSC, 143=Monad, 1868=Somnia).' })
     .describe('Hub chain ID to query (must be a hub chain). Defaults to BSC (56).'),
 })
 
@@ -56,9 +61,9 @@ export async function getAccountLiquidity(
     throw new Error(`Comptroller getAccountLiquidity returned error code ${error.toString()}`)
   }
 
-  // Values are in USD with 18 decimal mantissa
-  const liquidityUsd = Number(liquidity) / 1e18
-  const shortfallUsd = Number(shortfall) / 1e18
+  // Values are in USD with 18 decimal mantissa — use Decimal to avoid float precision loss
+  const liquidityUsd = new Decimal(liquidity.toString()).div('1e18').toNumber()
+  const shortfallUsd = new Decimal(shortfall.toString()).div('1e18').toNumber()
 
   return {
     address: input.address,

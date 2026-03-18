@@ -31,6 +31,9 @@ async function main() {
   const apiKey = process.env['BICONOMY_API_KEY']
 
   if (!privateKey) throw new Error('PRIVATE_KEY env var is required')
+  if (!/^0x[0-9a-fA-F]{64}$/.test(privateKey)) {
+    throw new Error('PRIVATE_KEY must be a 32-byte hex string (0x followed by 64 hex characters)')
+  }
   if (!apiKey) throw new Error('BICONOMY_API_KEY env var is required')
 
   // Read CrossChainIntent from stdin
@@ -39,11 +42,18 @@ async function main() {
   const intent = JSON.parse(Buffer.concat(chunks).toString()) as {
     biconomyInstructions: unknown
     summary: string
+    ownerAddress?: string
   }
 
   console.log(`\nExecuting: ${intent.summary}`)
 
   const account = privateKeyToAccount(privateKey as `0x${string}`)
+  if (intent.ownerAddress && intent.ownerAddress.toLowerCase() !== account.address.toLowerCase()) {
+    throw new Error(
+      `Address mismatch: intent was built for ${intent.ownerAddress} but PRIVATE_KEY derives ${account.address}. ` +
+        'Refusing to execute — re-build the intent with the correct address.',
+    )
+  }
   console.log(`Signer: ${account.address}`)
 
   // Submit to Biconomy execute

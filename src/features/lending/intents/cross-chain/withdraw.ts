@@ -6,6 +6,7 @@ import {
   getAssetDecimals,
   getPTokenAddress,
   getUnderlyingTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type {
   CrossChainIntent,
@@ -13,14 +14,20 @@ import type {
   RuntimeErc20Balance,
   ComposeFlow,
 } from '../../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../../shared/zod-utils'
 
 export const crossChainWithdrawSchema = z.object({
-  userAddress: z.string().describe('The wallet address withdrawing'),
+  userAddress: evmAddress.describe('The wallet address withdrawing'),
   asset: z.string().describe('Asset to withdraw, e.g. "USDC", "WETH"'),
-  amount: z.string().describe('Human-readable underlying amount to withdraw, e.g. "100"'),
+  amount: tokenAmount.describe('Human-readable underlying amount to withdraw, e.g. "100"'),
   targetChainId: z
     .number()
+    .int()
     .optional()
+    .refine((id) => id === undefined || !isHubChain(id), {
+      message:
+        'targetChainId must be a spoke chain (e.g. 42161=Arbitrum, 8453=Base) or omitted to keep funds on the hub.',
+    })
     .describe(
       'Spoke chain to receive the withdrawn funds, e.g. 42161=Arbitrum. ' +
         'If omitted, funds remain on the hub chain (BSC).',

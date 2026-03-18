@@ -124,10 +124,10 @@ describe('buildHubSupplyIntent', () => {
   })
 
   describe('error cases', () => {
-    it('throws for an asset with no pToken on the chain', () => {
+    it('throws for an unknown asset', () => {
       expect(() =>
         buildHubSupplyIntent({ userAddress: USER, asset: 'FAKECOIN', amount: '1', chainId: BSC_MAINNET_CHAIN_ID }, config),
-      ).toThrow('No pToken market for FAKECOIN')
+      ).toThrow('Unknown asset "FAKECOIN"')
     })
 
     it('throws for a chain with no markets configured', () => {

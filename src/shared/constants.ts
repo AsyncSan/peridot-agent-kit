@@ -195,7 +195,15 @@ export function getControllerAddress(chainId: number): Address {
 }
 
 export function getAssetDecimals(asset: string): number {
-  return ASSET_DECIMALS[asset.toUpperCase()] ?? 18
+  const symbol = asset.toUpperCase()
+  const decimals = ASSET_DECIMALS[symbol]
+  if (decimals === undefined) {
+    throw new Error(
+      `Unknown asset "${symbol}": decimal precision not configured. ` +
+        `Add it to ASSET_DECIMALS in constants.ts before use.`,
+    )
+  }
+  return decimals
 }
 
 /** Default public RPC endpoints (no API key required). */

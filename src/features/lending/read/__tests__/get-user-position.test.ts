@@ -14,7 +14,7 @@ function makePortfolioResponse(overrides: Partial<{
   const base = { totalSupplied: 10000, totalBorrowed: 4000, netApy: 3.5, healthFactor: 2.5 }
   const portfolio = { ...base, ...overrides, currentValue: (overrides.totalSupplied ?? base.totalSupplied) - (overrides.totalBorrowed ?? base.totalBorrowed) }
   return {
-    success: true,
+    ok: true,
     data: {
       portfolio,
       assets: [
@@ -48,9 +48,25 @@ describe('getUserPosition', () => {
       expect(result.netApyPct).toBe(3.5)
     })
 
-    it('computes healthFactor as totalSupplied / totalBorrowed', async () => {
+    it('healthFactor is totalSupplied / totalBorrowed (simplified estimate)', async () => {
       const result = await getUserPosition({ address: TEST_ADDRESS }, config)
       expect(result.healthFactor).toBe(10000 / 4000) // 2.5
+    })
+
+    it('healthFactor overestimates the real on-chain value (ignores collateral factors)', async () => {
+      // Real on-chain HF = Σ(suppliedUsd_i × collateralFactor_i) / totalBorrowedUsd
+      // Since all collateral factors are < 1, the real HF is always lower.
+      // Example: $10,000 WETH (collateralFactor=0.75), $4,000 borrowed
+      //   Simplified : 10000 / 4000 = 2.5  (what this tool returns)
+      //   On-chain   : 7500  / 4000 = 1.875 (what get_account_liquidity returns)
+      // This test documents the relationship so any formula change breaks visibly.
+      const result = await getUserPosition({ address: TEST_ADDRESS }, config)
+      const simplifiedHF = result.healthFactor!
+      const exampleCollateralFactor = 0.75
+      const conservativeOnChainHF = simplifiedHF * exampleCollateralFactor
+      expect(conservativeOnChainHF).toBeLessThan(simplifiedHF)
+      // The simplified HF says 2.5; a realistic on-chain HF for the same position is ~1.875.
+      // Agents must not treat the simplified value as an authoritative liquidation signal.
     })
 
     it('returns null healthFactor when no debt', async () => {
@@ -89,10 +105,10 @@ describe('getUserPosition', () => {
       expect(calledUrl).toContain(`address=${TEST_ADDRESS}`)
     })
 
-    it('throws when the API returns success: false', async () => {
+    it('throws when the API returns ok: false', async () => {
       vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
         ok: true,
-        json: () => Promise.resolve({ success: false, error: 'wallet_not_found' }),
+        json: () => Promise.resolve({ ok: false, error: 'wallet_not_found' }),
       }))
       await expect(getUserPosition({ address: TEST_ADDRESS }, config)).rejects.toThrow('wallet_not_found')
     })

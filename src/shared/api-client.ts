@@ -1,4 +1,9 @@
 import { BICONOMY_API_URL, DEFAULT_API_BASE_URL } from './constants'
+
+/** Default timeout for Peridot platform API reads (ms). */
+const PLATFORM_TIMEOUT_MS = 10_000
+/** Longer timeout for Biconomy compose — builds a full cross-chain route (ms). */
+const BICONOMY_COMPOSE_TIMEOUT_MS = 30_000
 import type {
   BiconomyResponse,
   ComposeRequest,
@@ -87,7 +92,7 @@ export class PeridotApiClient {
    * Example key: `USDC:56`
    */
   async getMarketMetrics(): Promise<Record<string, RawMarketMetric>> {
-    const res = await fetch(`${this.baseUrl}/api/markets/metrics`)
+    const res = await fetch(`${this.baseUrl}/api/markets/metrics`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch market metrics: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: Record<string, RawMarketMetric>; error?: string }
     if (!json.ok) throw new Error(`Market metrics API error: ${json.error ?? 'unknown'}`)
@@ -99,10 +104,13 @@ export class PeridotApiClient {
    * Uses the platform's portfolio-data endpoint which aggregates DB snapshots.
    */
   async getUserPortfolio(address: string): Promise<RawUserPortfolio> {
-    const res = await fetch(`${this.baseUrl}/api/user/portfolio-data?address=${address}`)
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      throw new Error(`Invalid address format: "${address}". Expected 0x followed by 40 hex characters.`)
+    }
+    const res = await fetch(`${this.baseUrl}/api/user/portfolio-data?address=${address}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch portfolio: ${res.status} ${res.statusText}`)
-    const json = (await res.json()) as { success: boolean; data: RawUserPortfolio; error?: string }
-    if (!json.success) throw new Error(`Portfolio API error: ${json.error ?? 'unknown'}`)
+    const json = (await res.json()) as { ok: boolean; data: RawUserPortfolio; error?: string }
+    if (!json.ok) throw new Error(`Portfolio API error: ${json.error ?? 'unknown'}`)
     return json.data
   }
 
@@ -117,10 +125,10 @@ export class PeridotApiClient {
     const url = chainId
       ? `${this.baseUrl}/api/apy?chainId=${chainId}`
       : `${this.baseUrl}/api/apy`
-    const res = await fetch(url)
+    const res = await fetch(url, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch APY data: ${res.status} ${res.statusText}`)
-    const json = (await res.json()) as { success: boolean; data: RawApyResponse; error?: string }
-    if (!json.success) throw new Error(`APY API error: ${json.error ?? 'unknown'}`)
+    const json = (await res.json()) as { ok: boolean; data: RawApyResponse; error?: string }
+    if (!json.ok) throw new Error(`APY API error: ${json.error ?? 'unknown'}`)
     return json.data
   }
 
@@ -139,6 +147,7 @@ export class PeridotApiClient {
         'X-API-Key': this.biconomyApiKey,
       },
       body: JSON.stringify(request),
+      signal: AbortSignal.timeout(BICONOMY_COMPOSE_TIMEOUT_MS),
     })
     if (!res.ok) {
       const error: unknown = await res.json().catch(() => ({}))
@@ -149,7 +158,7 @@ export class PeridotApiClient {
 
   /** Polls Biconomy for the status of a submitted super-transaction. */
   async biconomyGetStatus(superTxHash: string): Promise<TransactionStatus> {
-    const res = await fetch(`${BICONOMY_API_URL}/v1/explorer/transaction/${superTxHash}`)
+    const res = await fetch(`${BICONOMY_API_URL}/v1/explorer/transaction/${superTxHash}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (res.status === 404) return { superTxHash, status: 'not_found' }
     if (!res.ok) throw new Error(`Biconomy status error: ${res.status}`)
     const data = (await res.json()) as Record<string, unknown>

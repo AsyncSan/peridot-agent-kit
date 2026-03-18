@@ -6,13 +6,15 @@ import {
   getAssetDecimals,
   getControllerAddress,
   getPTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type { HubTransactionIntent, PeridotConfig } from '../../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../../shared/zod-utils'
 
 export const hubBorrowSchema = z.object({
-  userAddress: z.string().describe('The wallet address that will borrow'),
+  userAddress: evmAddress.describe('The wallet address that will borrow'),
   borrowAsset: z.string().describe('Asset to borrow, e.g. "USDC", "WETH"'),
-  borrowAmount: z.string().describe('Human-readable amount to borrow, e.g. "500" for 500 USDC'),
+  borrowAmount: tokenAmount.describe('Human-readable amount to borrow, e.g. "500" for 500 USDC'),
   collateralAssets: z
     .array(z.string())
     .min(1)
@@ -22,7 +24,9 @@ export const hubBorrowSchema = z.object({
     ),
   chainId: z
     .number()
+    .int()
     .default(BSC_MAINNET_CHAIN_ID)
+    .refine(isHubChain, { message: 'chainId must be a hub chain (56=BSC, 143=Monad, 1868=Somnia). Use build_cross_chain_borrow_intent for spoke chains.' })
     .describe('Hub chain ID. Defaults to BSC (56).'),
 })
 

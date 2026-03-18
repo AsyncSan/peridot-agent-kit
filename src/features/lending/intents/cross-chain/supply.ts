@@ -6,6 +6,7 @@ import {
   getAssetDecimals,
   getPTokenAddress,
   getUnderlyingTokenAddress,
+  isHubChain,
   resolveHubChainId,
 } from '../../../../shared/constants'
 import type {
@@ -14,18 +15,21 @@ import type {
   RuntimeErc20Balance,
   ComposeFlow,
 } from '../../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../../shared/zod-utils'
 
 export const crossChainSupplySchema = z.object({
-  userAddress: z.string().describe('The wallet address on the source chain'),
+  userAddress: evmAddress.describe('The wallet address on the source chain'),
   sourceChainId: z
     .number()
+    .int()
     .default(ARBITRUM_CHAIN_ID)
+    .refine((id) => !isHubChain(id), { message: 'sourceChainId must be a spoke chain (e.g. 42161=Arbitrum, 8453=Base). Use build_hub_supply_intent for hub chains (56, 143, 1868).' })
     .describe(
       'The spoke chain the user is on, e.g. 42161=Arbitrum, 8453=Base, 1=Ethereum. ' +
         'This is where the user holds the tokens they want to supply.',
     ),
   asset: z.string().describe('Asset to supply, e.g. "USDC", "WETH"'),
-  amount: z.string().describe('Human-readable amount to supply, e.g. "100" for 100 USDC'),
+  amount: tokenAmount.describe('Human-readable amount to supply, e.g. "100" for 100 USDC'),
   enableAsCollateral: z
     .boolean()
     .default(true)

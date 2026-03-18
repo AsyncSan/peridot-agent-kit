@@ -13,6 +13,7 @@
 
 import type { ToolDefinition } from '../../shared/types'
 
+import { listMarketsSchema, listMarkets } from './read/list-markets'
 import { getMarketRatesSchema, getMarketRates } from './read/get-market-rates'
 import { getUserPositionSchema, getUserPosition } from './read/get-user-position'
 import { simulateBorrowSchema, simulateBorrow } from './read/simulate-borrow'
@@ -34,6 +35,18 @@ export const lendingTools: ToolDefinition<any, any>[] = [
   // ── Read / Simulate ──────────────────────────────────────────────────────
 
   {
+    name: 'list_markets',
+    description:
+      'List all available Peridot lending markets with their TVL, utilization, liquidity, price, and collateral factor. ' +
+      'Optionally filter by chainId. ' +
+      'Call this first when the user asks "what can I lend/borrow?" or when you need to discover which assets are available. ' +
+      'Results are sorted by TVL descending so the most liquid markets appear first.',
+    inputSchema: listMarketsSchema,
+    execute: listMarkets,
+    category: 'lending',
+  },
+
+  {
     name: 'get_market_rates',
     description:
       'Fetch current market data for a Peridot lending market: supply APY, borrow APY, ' +
@@ -49,9 +62,13 @@ export const lendingTools: ToolDefinition<any, any>[] = [
     name: 'get_user_position',
     description:
       "Fetch a user's complete Peridot portfolio: total supplied USD, total borrowed USD, " +
-      'net APY, health factor (totalSupplied / totalBorrowed — above 1.5 is safe), and per-asset breakdown. ' +
+      'net APY, and a simplified health factor estimate (totalSupplied / totalBorrowed). ' +
+      'This figure ignores per-asset collateral factors, so it overestimates the real on-chain value — ' +
+      'for the authoritative liquidation threshold use get_account_liquidity. ' +
+      'Treat this as a quick signal: above 2.0 indicates low near-term risk; ' +
+      'below 2.0 warrants a get_account_liquidity check before recommending further borrows. ' +
       'ALWAYS call this before recommending or building any borrow, withdraw, or repay action ' +
-      'so you know the user\'s current exposure and health factor.',
+      "so you know the user's current exposure.",
     inputSchema: getUserPositionSchema,
     execute: getUserPosition,
     category: 'lending',

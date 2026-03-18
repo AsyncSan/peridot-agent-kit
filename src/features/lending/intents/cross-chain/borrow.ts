@@ -7,6 +7,7 @@ import {
   getControllerAddress,
   getPTokenAddress,
   getUnderlyingTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type {
   CrossChainIntent,
@@ -14,18 +15,24 @@ import type {
   RuntimeErc20Balance,
   ComposeFlow,
 } from '../../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../../shared/zod-utils'
 
 export const crossChainBorrowSchema = z.object({
-  userAddress: z.string().describe('The wallet address borrowing'),
+  userAddress: evmAddress.describe('The wallet address borrowing'),
   collateralAssets: z
     .array(z.string())
     .min(1)
     .describe('Assets already supplied as collateral, e.g. ["WETH"]'),
   borrowAsset: z.string().describe('Asset to borrow, e.g. "USDC"'),
-  borrowAmount: z.string().describe('Human-readable amount, e.g. "500" for 500 USDC'),
+  borrowAmount: tokenAmount.describe('Human-readable amount, e.g. "500" for 500 USDC'),
   targetChainId: z
     .number()
+    .int()
     .optional()
+    .refine((id) => id === undefined || !isHubChain(id), {
+      message:
+        'targetChainId must be a spoke chain (e.g. 42161=Arbitrum, 8453=Base) or omitted to keep funds on the hub.',
+    })
     .describe(
       'Spoke chain to receive borrowed funds, e.g. 42161=Arbitrum. ' +
         'If omitted, borrowed funds remain on the hub chain (BSC).',

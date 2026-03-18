@@ -19,7 +19,7 @@ const MOCK_METRICS = {
 }
 
 const MOCK_APY = {
-  success: true,
+  ok: true,
   data: {
     usdc: {
       56: {
@@ -105,6 +105,18 @@ describe('getMarketRates', () => {
       expect(result.collateralFactorPct).toBe(75)
     })
 
+    it('defaults collateralFactorPct to 0 when collateral_factor_pct is absent from metric', async () => {
+      const metricsNoFactor = {
+        ok: true,
+        data: {
+          'USDC:56': { utilizationPct: 72.5, tvlUsd: 5_000_000, liquidityUnderlying: 100_000, liquidityUsd: 100_000, priceUsd: 1.0, updatedAt: '2024-01-01T00:00:00Z', chainId: 56 },
+        },
+      }
+      mockFetch(metricsNoFactor as any)
+      const result = await getMarketRates({ asset: 'USDC', chainId: 56 }, config)
+      expect(result.collateralFactorPct).toBe(0)
+    })
+
     it('resolves assets on Monad (chainId 143)', async () => {
       const result = await getMarketRates({ asset: 'USDC', chainId: 143 }, config)
       expect(result.chainId).toBe(143)
@@ -161,7 +173,7 @@ describe('getMarketRates', () => {
     })
 
     it('falls back to 0 when /api/apy returns empty data', async () => {
-      mockFetch(MOCK_METRICS, { success: true, data: {} } as typeof MOCK_APY)
+      mockFetch(MOCK_METRICS, { ok: true, data: {} } as typeof MOCK_APY)
       const result = await getMarketRates({ asset: 'USDC', chainId: 56 }, config)
       expect(result.supplyApyPct).toBe(0)
       expect(result.totalSupplyApyPct).toBe(0)
@@ -233,12 +245,12 @@ describe('getMarketRates', () => {
       await expect(getMarketRates({ asset: 'USDC', chainId: 56 }, config)).rejects.toThrow('db_unavailable')
     })
 
-    it('throws when APY API returns success: false', async () => {
+    it('throws when APY API returns ok: false', async () => {
       vi.stubGlobal(
         'fetch',
         vi.fn().mockImplementation((url: string) => {
           if (url.includes('/api/apy')) {
-            return Promise.resolve({ ok: true, json: () => Promise.resolve({ success: false, error: 'apy_unavailable' }) })
+            return Promise.resolve({ ok: true, json: () => Promise.resolve({ ok: false, error: 'apy_unavailable' }) })
           }
           return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_METRICS) })
         }),

@@ -7,16 +7,20 @@ import {
   getControllerAddress,
   getPTokenAddress,
   getUnderlyingTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type { HubTransactionIntent, PeridotConfig } from '../../../../shared/types'
+import { evmAddress, tokenAmount } from '../../../../shared/zod-utils'
 
 export const hubSupplySchema = z.object({
-  userAddress: z.string().describe('The wallet address supplying assets'),
+  userAddress: evmAddress.describe('The wallet address supplying assets'),
   asset: z.string().describe('Asset to supply, e.g. "USDC", "WETH"'),
-  amount: z.string().describe('Human-readable amount to supply, e.g. "100" for 100 USDC'),
+  amount: tokenAmount.describe('Human-readable amount to supply, e.g. "100" for 100 USDC'),
   chainId: z
     .number()
+    .int()
     .default(BSC_MAINNET_CHAIN_ID)
+    .refine(isHubChain, { message: 'chainId must be a hub chain (56=BSC, 143=Monad, 1868=Somnia). Use build_cross_chain_supply_intent for spoke chains.' })
     .describe('Hub chain ID. Must be a chain with native Peridot markets. Defaults to BSC (56).'),
   enableAsCollateral: z
     .boolean()

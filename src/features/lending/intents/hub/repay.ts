@@ -6,21 +6,28 @@ import {
   getAssetDecimals,
   getPTokenAddress,
   getUnderlyingTokenAddress,
+  isHubChain,
 } from '../../../../shared/constants'
 import type { HubTransactionIntent, PeridotConfig } from '../../../../shared/types'
+import { evmAddress } from '../../../../shared/zod-utils'
 
 export const hubRepaySchema = z.object({
-  userAddress: z.string().describe('The wallet address repaying the debt'),
+  userAddress: evmAddress.describe('The wallet address repaying the debt'),
   asset: z.string().describe('Asset to repay, e.g. "USDC", "WETH"'),
   amount: z
     .string()
+    .refine((v) => v.toLowerCase() === 'max' || /^\d+(\.\d+)?$/.test(v), {
+      message: 'Amount must be a positive decimal number (e.g. "500") or "max" to repay all.',
+    })
     .describe(
       'Human-readable amount to repay, e.g. "500" for 500 USDC. ' +
         'Use "max" to repay the full outstanding balance (sets uint256 max).',
     ),
   chainId: z
     .number()
+    .int()
     .default(BSC_MAINNET_CHAIN_ID)
+    .refine(isHubChain, { message: 'chainId must be a hub chain (56=BSC, 143=Monad, 1868=Somnia).' })
     .describe('Hub chain ID. Defaults to BSC (56).'),
 })
 
