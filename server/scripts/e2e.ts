@@ -217,7 +217,7 @@ async function runSuite(): Promise<TestResult[]> {
     results.push(assert('/api/apy → status 200 or 500', status === 200 || status === 500, `got ${status}`))
 
     if (status === 200) {
-      results.push(assert('/api/apy → success: true', isObj(body) && body['success'] === true))
+      results.push(assert('/api/apy → ok: true', isObj(body) && body['ok'] === true))
       const data = isObj(body) ? body['data'] : null
       results.push(assert('/api/apy → data is object', isObj(data)))
 
@@ -265,7 +265,7 @@ async function runSuite(): Promise<TestResult[]> {
         }
       }
     } else {
-      results.push(assert('/api/apy (500) → success: false', isObj(body) && body['success'] === false))
+      results.push(assert('/api/apy (500) → ok: false', isObj(body) && body['ok'] === false))
     }
   }
 
@@ -275,7 +275,7 @@ async function runSuite(): Promise<TestResult[]> {
     results.push(assert('/api/apy?chainId=56 → status 200 or 500', status === 200 || status === 500, `got ${status}`))
 
     if (status === 200) {
-      results.push(assert('/api/apy?chainId=56 → success: true', isObj(body) && body['success'] === true))
+      results.push(assert('/api/apy?chainId=56 → ok: true', isObj(body) && body['ok'] === true))
       const data = isObj(body) ? body['data'] : null
 
       if (isObj(data)) {
@@ -297,7 +297,7 @@ async function runSuite(): Promise<TestResult[]> {
   {
     const { status, body } = await get('/api/user/portfolio-data')
     results.push(assert('portfolio-data (no address) → 400', status === 400, `got ${status}`))
-    results.push(assert('portfolio-data (no address) → success: false', isObj(body) && body['success'] === false))
+    results.push(assert('portfolio-data (no address) → ok: false', isObj(body) && body['ok'] === false))
     results.push(assert('portfolio-data (no address) → error contains "Missing"',
       isObj(body) && typeof body['error'] === 'string' && body['error'].includes('Missing'),
       `error: ${isObj(body) ? body['error'] : body}`))
@@ -311,8 +311,8 @@ async function runSuite(): Promise<TestResult[]> {
     const res = await fetch(`${BASE}/api/user/portfolio-data?address=${VALID_ADDRESS}`)
     results.push(assert('portfolio-data (no auth headers) → 401', res.status === 401, `got ${res.status}`))
     const body = await res.json().catch(() => null)
-    results.push(assert('portfolio-data (no auth headers) → success: false',
-      isObj(body) && body['success'] === false))
+    results.push(assert('portfolio-data (no auth headers) → ok: false',
+      isObj(body) && body['ok'] === false))
   }
 
   // ── /api/user/portfolio-data — auth: expired timestamp → 401 ───────────
@@ -356,7 +356,7 @@ async function runSuite(): Promise<TestResult[]> {
       status === 200 || status === 500, `got ${status}`))
 
     if (status === 200) {
-      results.push(assert('portfolio-data (valid address) → success: true', isObj(body) && body['success'] === true))
+      results.push(assert('portfolio-data (valid address) → ok: true', isObj(body) && body['ok'] === true))
       const data = isObj(body) ? (body['data'] as Record<string, unknown>) : null
 
       if (isObj(data)) {
@@ -453,6 +453,118 @@ async function runSuite(): Promise<TestResult[]> {
         }
       }
     }
+  }
+
+  // ── /metrics ──────────────────────────────────────────────────────────────
+  {
+    const { status, body } = await get('/metrics')
+    results.push(assert('/metrics → 200', status === 200, `got ${status}`))
+    results.push(assert('/metrics → ok: true', isObj(body) && body['ok'] === true))
+
+    const data = isObj(body) ? body['data'] : null
+    results.push(assert('/metrics → data is object', isObj(data)))
+
+    if (isObj(data)) {
+      results.push(assert('/metrics → uptime_seconds is non-negative integer',
+        isFiniteNum(data['uptime_seconds']) && Number.isInteger(data['uptime_seconds']) &&
+        (data['uptime_seconds'] as number) >= 0,
+        `got ${data['uptime_seconds']}`))
+
+      results.push(assert('/metrics → requests_total is non-negative integer',
+        isFiniteNum(data['requests_total']) && Number.isInteger(data['requests_total']) &&
+        (data['requests_total'] as number) >= 0,
+        `got ${data['requests_total']}`))
+
+      results.push(assert('/metrics → errors_4xx_total is non-negative integer',
+        isFiniteNum(data['errors_4xx_total']) && Number.isInteger(data['errors_4xx_total']) &&
+        (data['errors_4xx_total'] as number) >= 0,
+        `got ${data['errors_4xx_total']}`))
+
+      results.push(assert('/metrics → errors_5xx_total is non-negative integer',
+        isFiniteNum(data['errors_5xx_total']) && Number.isInteger(data['errors_5xx_total']) &&
+        (data['errors_5xx_total'] as number) >= 0,
+        `got ${data['errors_5xx_total']}`))
+
+      const mem = isObj(data['memory']) ? data['memory'] : null
+      results.push(assert('/metrics → memory block present', mem !== null))
+      if (mem) {
+        results.push(assert('/metrics → memory.rss_mb > 0',
+          isFiniteNum(mem['rss_mb']) && (mem['rss_mb'] as number) > 0,
+          `rss_mb=${mem['rss_mb']}`))
+        results.push(assert('/metrics → memory.heap_total_mb ≥ heap_used_mb',
+          isFiniteNum(mem['heap_total_mb']) && isFiniteNum(mem['heap_used_mb']) &&
+          (mem['heap_total_mb'] as number) >= (mem['heap_used_mb'] as number),
+          `heap_total=${mem['heap_total_mb']} heap_used=${mem['heap_used_mb']}`))
+      }
+
+      results.push(assert('/metrics → routes is object', typeof data['routes'] === 'object' && data['routes'] !== null))
+    }
+  }
+
+  // Check Cache-Control: no-store on /metrics
+  {
+    const res = await fetch(`${BASE}/metrics`)
+    results.push(assert('/metrics → Cache-Control: no-store',
+      res.headers.get('cache-control') === 'no-store',
+      `got: ${res.headers.get('cache-control')}`))
+  }
+
+  // ── /api/leaderboard ──────────────────────────────────────────────────────
+  {
+    const { status, body } = await get('/api/leaderboard')
+    results.push(assert('/api/leaderboard → status 200 or 500', status === 200 || status === 500, `got ${status}`))
+
+    if (status === 200) {
+      results.push(assert('/api/leaderboard → ok: true', isObj(body) && body['ok'] === true))
+      const data = isObj(body) ? body['data'] : null
+      results.push(assert('/api/leaderboard → data is object', isObj(data)))
+
+      if (isObj(data)) {
+        results.push(assert('/api/leaderboard → entries is array',
+          Array.isArray(data['entries'])))
+        results.push(assert('/api/leaderboard → total is non-negative integer',
+          isFiniteNum(data['total']) && Number.isInteger(data['total']) &&
+          (data['total'] as number) >= 0,
+          `total=${data['total']}`))
+
+        const entries = Array.isArray(data['entries']) ? data['entries'] as Record<string, unknown>[] : []
+        for (let i = 0; i < Math.min(entries.length, 3); i++) {
+          const e = entries[i]
+          results.push(assert(`leaderboard[${i}] → rank is positive integer`,
+            isFiniteNum(e['rank']) && Number.isInteger(e['rank']) && (e['rank'] as number) > 0,
+            `rank=${e['rank']}`))
+          results.push(assert(`leaderboard[${i}] → address is non-empty string`,
+            typeof e['address'] === 'string' && (e['address'] as string).length > 0))
+          results.push(assert(`leaderboard[${i}] → totalPoints is finite ≥ 0`,
+            isFiniteNum(e['totalPoints']) && (e['totalPoints'] as number) >= 0))
+          results.push(assert(`leaderboard[${i}] → totalSuppliedUsd is finite ≥ 0`,
+            isFiniteNum(e['totalSuppliedUsd']) && (e['totalSuppliedUsd'] as number) >= 0))
+          results.push(assert(`leaderboard[${i}] → totalBorrowedUsd is finite ≥ 0`,
+            isFiniteNum(e['totalBorrowedUsd']) && (e['totalBorrowedUsd'] as number) >= 0))
+          results.push(assert(`leaderboard[${i}] → netWorthUsd is finite`,
+            isFiniteNum(e['netWorthUsd'])))
+          results.push(assert(`leaderboard[${i}] → updatedAt is valid ISO date`,
+            typeof e['updatedAt'] === 'string' && !isNaN(Date.parse(e['updatedAt'] as string)),
+            `updatedAt=${e['updatedAt']}`))
+        }
+      }
+    } else {
+      results.push(assert('/api/leaderboard (500) → ok: false', isObj(body) && body['ok'] === false))
+    }
+  }
+
+  // Validate leaderboard query params
+  {
+    const { status: s400 } = await get('/api/leaderboard?limit=abc')
+    results.push(assert('/api/leaderboard?limit=abc → 400', s400 === 400, `got ${s400}`))
+
+    const { status: s400c } = await get('/api/leaderboard?chainId=bsc')
+    results.push(assert('/api/leaderboard?chainId=bsc → 400', s400c === 400, `got ${s400c}`))
+
+    // Valid limit and chainId should not error
+    const { status: s200 } = await get('/api/leaderboard?limit=10&chainId=56')
+    results.push(assert('/api/leaderboard?limit=10&chainId=56 → 200 or 500',
+      s200 === 200 || s200 === 500, `got ${s200}`))
   }
 
   // ── CORS header present on API routes ─────────────────────────────────────

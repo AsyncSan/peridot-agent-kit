@@ -141,6 +141,10 @@ These tools are formatted with clear descriptions and strict JSON schemas so you
 
 ### 🔍 Read & Simulate (Risk-Free)
 
+`list_markets` - Discover all available Peridot lending markets across all chains, sorted by TVL. Call this first when the user asks "what can I lend or borrow?".
+
+`get_leaderboard` - Ranked list of top Peridot users by points earned. Supports limit and chainId filters.
+
 `get_market_rates` - Full rate breakdown for an asset: base supply/borrow APY, PERIDOT reward APY, boost APY (Morpho/PancakeSwap/Magma), total supply APY, net borrow APY, TVL, utilization, liquidity, price, and collateral factor.
 
 `get_user_position` - Total collateral, total debt, and health factor for a wallet.

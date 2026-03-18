@@ -14,6 +14,7 @@
 import type { ToolDefinition } from '../../shared/types'
 
 import { listMarketsSchema, listMarkets } from './read/list-markets'
+import { getLeaderboardSchema, getLeaderboard } from './read/get-leaderboard'
 import { getMarketRatesSchema, getMarketRates } from './read/get-market-rates'
 import { getUserPositionSchema, getUserPosition } from './read/get-user-position'
 import { simulateBorrowSchema, simulateBorrow } from './read/simulate-borrow'
@@ -43,6 +44,18 @@ export const lendingTools: ToolDefinition<any, any>[] = [
       'Results are sorted by TVL descending so the most liquid markets appear first.',
     inputSchema: listMarketsSchema,
     execute: listMarkets,
+    category: 'lending',
+  },
+
+  {
+    name: 'get_leaderboard',
+    description:
+      'Fetch the Peridot points leaderboard — ranked list of top users by total points earned. ' +
+      'Returns rank, wallet address, total points, total supplied USD, total borrowed USD, and net worth. ' +
+      'Optionally filter by chainId or limit the number of results (max 100). ' +
+      'Call this when the user asks "who are the top users?", "show me the leaderboard", or "where do I rank?".',
+    inputSchema: getLeaderboardSchema,
+    execute: getLeaderboard,
     category: 'lending',
   },
 

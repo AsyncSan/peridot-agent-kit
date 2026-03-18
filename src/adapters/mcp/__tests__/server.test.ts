@@ -86,6 +86,17 @@ const MOCK_PORTFOLIO = {
   },
 }
 
+const MOCK_LEADERBOARD = {
+  ok: true,
+  data: {
+    entries: [
+      { rank: 1, address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', totalPoints: 1500, totalSuppliedUsd: 50000, totalBorrowedUsd: 20000, netWorthUsd: 30000, updatedAt: '2024-03-01T00:00:00.000Z' },
+      { rank: 2, address: '0x70997970c51812dc3a010c7d01b50e0d17dc79c8', totalPoints: 900, totalSuppliedUsd: 25000, totalBorrowedUsd: 10000, netWorthUsd: 15000, updatedAt: '2024-03-01T00:00:00.000Z' },
+    ],
+    total: 2,
+  },
+}
+
 function mockFetch() {
   vi.stubGlobal(
     'fetch',
@@ -93,6 +104,7 @@ function mockFetch() {
       if (url.includes('/api/apy'))              return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_APY) })
       if (url.includes('/api/markets/metrics'))  return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_METRICS) })
       if (url.includes('/api/user/portfolio'))   return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_PORTFOLIO) })
+      if (url.includes('/api/leaderboard'))      return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEADERBOARD) })
       return Promise.reject(new Error(`Unexpected fetch URL: ${url}`))
     }),
   )
@@ -108,6 +120,7 @@ afterEach(() => { vi.unstubAllGlobals() })
 describe('tool registry', () => {
   const EXPECTED_TOOLS = [
     'list_markets',
+    'get_leaderboard',
     'get_market_rates',
     'get_user_position',
     'simulate_borrow',
@@ -164,7 +177,7 @@ describe('tool registry', () => {
 
   it('lending tools are categorised correctly', () => {
     const lendingNames = [
-      'list_markets', 'get_market_rates', 'get_user_position', 'simulate_borrow', 'get_account_liquidity',
+      'list_markets', 'get_leaderboard', 'get_market_rates', 'get_user_position', 'simulate_borrow', 'get_account_liquidity',
       'build_hub_supply_intent', 'build_hub_borrow_intent', 'build_hub_repay_intent',
       'build_hub_withdraw_intent', 'build_enable_collateral_intent', 'build_disable_collateral_intent',
       'build_cross_chain_supply_intent', 'build_cross_chain_borrow_intent',
@@ -318,6 +331,39 @@ describe('MCP handler — list_markets', () => {
     const response = await mcpExecute(tool, { chainId: 56 })
     const parsed = JSON.parse(response.content[0]!.text)
     expect(parsed.markets.every((m: any) => m.chainId === 56)).toBe(true)
+  })
+})
+
+describe('MCP handler — get_leaderboard', () => {
+  it('returns entries and total', async () => {
+    const tool = findTool('get_leaderboard')
+    const response = await mcpExecute(tool, {})
+    expect(response.isError).toBe(false)
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(Array.isArray(parsed.entries)).toBe(true)
+    expect(typeof parsed.total).toBe('number')
+  })
+
+  it('each entry has all expected fields', async () => {
+    const tool = findTool('get_leaderboard')
+    const response = await mcpExecute(tool, {})
+    const parsed = JSON.parse(response.content[0]!.text)
+    const e = parsed.entries[0]
+    expect(typeof e.rank).toBe('number')
+    expect(typeof e.address).toBe('string')
+    expect(typeof e.totalPoints).toBe('number')
+    expect(typeof e.totalSuppliedUsd).toBe('number')
+    expect(typeof e.totalBorrowedUsd).toBe('number')
+    expect(typeof e.netWorthUsd).toBe('number')
+    expect(typeof e.updatedAt).toBe('string')
+  })
+
+  it('accepts limit and chainId filters without error', async () => {
+    const tool = findTool('get_leaderboard')
+    const response = await mcpExecute(tool, { limit: 10, chainId: 56 })
+    expect(response.isError).toBe(false)
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(Array.isArray(parsed.entries)).toBe(true)
   })
 })
 

@@ -172,6 +172,33 @@ describe('loadEnv', () => {
     })
   })
 
+  // ── DB_QUERY_TIMEOUT_MS ─────────────────────────────────────────────────────
+  describe('DB_QUERY_TIMEOUT_MS', () => {
+    it('defaults to 8000 when not set', () => {
+      expect(load().DB_QUERY_TIMEOUT_MS).toBe(8000)
+    })
+
+    it('parses a valid value', () => {
+      expect(load({ DB_QUERY_TIMEOUT_MS: '5000' }).DB_QUERY_TIMEOUT_MS).toBe(5000)
+    })
+
+    it('returns a number not a string', () => {
+      expect(typeof load({ DB_QUERY_TIMEOUT_MS: '3000' }).DB_QUERY_TIMEOUT_MS).toBe('number')
+    })
+
+    it('throws for 0', () => {
+      expect(() => load({ DB_QUERY_TIMEOUT_MS: '0' })).toThrow(/DB_QUERY_TIMEOUT_MS/)
+    })
+
+    it('throws for negative values', () => {
+      expect(() => load({ DB_QUERY_TIMEOUT_MS: '-1' })).toThrow(/DB_QUERY_TIMEOUT_MS/)
+    })
+
+    it('throws for non-numeric values', () => {
+      expect(() => load({ DB_QUERY_TIMEOUT_MS: 'slow' })).toThrow(/DB_QUERY_TIMEOUT_MS/)
+    })
+  })
+
   // ── Full defaults ───────────────────────────────────────────────────────────
   it('returns all defaults when only DATABASE_URL is provided', () => {
     const env = load()
@@ -183,6 +210,7 @@ describe('loadEnv', () => {
       RATE_LIMIT_RPM: 120,
       RATE_LIMIT_WINDOW_MS: 60000,
       DB_SSL_REJECT_UNAUTHORIZED: true,
+      DB_QUERY_TIMEOUT_MS: 8000,
     })
   })
 })

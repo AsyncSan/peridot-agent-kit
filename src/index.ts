@@ -13,6 +13,8 @@ export type {
   ToolDefinition,
   ToolCategory,
   MarketRates,
+  MarketSummary,
+  LeaderboardEntry,
   UserPosition,
   SimulateBorrowResult,
   AccountLiquidity,
@@ -58,6 +60,8 @@ export {
 export { PTOKEN_ABI, COMPTROLLER_ABI, ERC20_ABI } from './shared/abis'
 
 // Core functions — read tools
+export { listMarkets } from './features/lending/read/list-markets'
+export { getLeaderboard } from './features/lending/read/get-leaderboard'
 export { getMarketRates } from './features/lending/read/get-market-rates'
 export { getUserPosition } from './features/lending/read/get-user-position'
 export { simulateBorrow } from './features/lending/read/simulate-borrow'

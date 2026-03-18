@@ -77,6 +77,16 @@ export interface MarketSummary {
   updatedAt: string
 }
 
+export interface LeaderboardEntry {
+  rank: number
+  address: string
+  totalPoints: number
+  totalSuppliedUsd: number
+  totalBorrowedUsd: number
+  netWorthUsd: number
+  updatedAt: string
+}
+
 export interface UserPosition {
   address: string
   totalSuppliedUsd: number

@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx --env-file=.env src/index.ts",
-    "start": "node dist/server.js",
+    "start": "bun run dist/server.js",
     "build": "bun build src/index.ts --outfile dist/server.js --target bun --minify",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",

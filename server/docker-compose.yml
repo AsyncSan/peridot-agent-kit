@@ -7,8 +7,13 @@ services:
       DATABASE_URL: ${DATABASE_URL}
       PGSSLROOTCERT: ${PGSSLROOTCERT:-}
       PGSSLSERVERNAME: ${PGSSLSERVERNAME:-}
+      DB_SSL_REJECT_UNAUTHORIZED: ${DB_SSL_REJECT_UNAUTHORIZED:-true}
+      DB_QUERY_TIMEOUT_MS: ${DB_QUERY_TIMEOUT_MS:-8000}
       NETWORK_PRESET: ${NETWORK_PRESET:-mainnet}
       CORS_ORIGIN: ${CORS_ORIGIN:-*}
+      PORT: ${PORT:-3001}
+      RATE_LIMIT_RPM: ${RATE_LIMIT_RPM:-120}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:3001/health"]

@@ -35,12 +35,17 @@ function toolsForConfig(_config: PeridotConfig): ToolDefinition[] {
  * Create Vercel AI SDK tools for all Peridot Agent Kit tools.
  * Returns a record of tool name → tool, ready to pass to `generateText` / `streamText`.
  */
+/**
+ * Create Vercel AI SDK tools for all Peridot Agent Kit tools.
+ * Returns a record of tool name → tool, ready to pass to `generateText` / `streamText`.
+ */
 export function createVercelAITools(
   config: PeridotConfig = {},
-): Record<string, unknown> {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+): Record<string, any> {
   const tools = toolsForConfig(config)
 
-  const entries = Object.fromEntries(
+  return Object.fromEntries(
     tools.map((t) => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const capturedTool = t as ToolDefinition<any, any>
@@ -49,14 +54,10 @@ export function createVercelAITools(
         tool({
           description: capturedTool.description,
           parameters: capturedTool.inputSchema as z.ZodObject<z.ZodRawShape>,
-          execute: async (input: unknown) => {
-            const result = (await capturedTool.execute(input, config)) as unknown
-            return result
-          },
+          // eslint-disable-next-line @typescript-eslint/require-await, @typescript-eslint/no-unsafe-return
+          execute: async (input: unknown) => capturedTool.execute(input, config) as unknown,
         }),
       ]
     }),
   )
-
-  return entries as Record<string, unknown>
 }

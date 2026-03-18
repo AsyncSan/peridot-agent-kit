@@ -1,0 +1,10 @@
+node_modules
+dist
+.env
+.env.*
+!.env.example
+scripts
+TEST_PROMPT.md
+**/__tests__
+**/*.test.ts
+*.log

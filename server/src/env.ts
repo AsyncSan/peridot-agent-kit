@@ -7,6 +7,7 @@ export interface Env {
   RATE_LIMIT_RPM: number
   RATE_LIMIT_WINDOW_MS: number
   DB_SSL_REJECT_UNAUTHORIZED: boolean
+  DB_QUERY_TIMEOUT_MS: number
 }
 
 /**
@@ -65,6 +66,13 @@ export function loadEnv(env: Record<string, string | undefined> = process.env): 
   // ── DB_SSL_REJECT_UNAUTHORIZED ────────────────────────────────────────────
   const DB_SSL_REJECT_UNAUTHORIZED = env['DB_SSL_REJECT_UNAUTHORIZED'] !== 'false'
 
+  // ── DB_QUERY_TIMEOUT_MS ───────────────────────────────────────────────────
+  const queryTimeoutRaw = env['DB_QUERY_TIMEOUT_MS'] ?? '8000'
+  const DB_QUERY_TIMEOUT_MS = Number(queryTimeoutRaw)
+  if (!Number.isInteger(DB_QUERY_TIMEOUT_MS) || DB_QUERY_TIMEOUT_MS <= 0) {
+    throw new Error(`DB_QUERY_TIMEOUT_MS must be a positive integer, got "${queryTimeoutRaw}"`)
+  }
+
   return {
     DATABASE_URL,
     PORT,
@@ -74,5 +82,6 @@ export function loadEnv(env: Record<string, string | undefined> = process.env): 
     RATE_LIMIT_RPM,
     RATE_LIMIT_WINDOW_MS,
     DB_SSL_REJECT_UNAUTHORIZED,
+    DB_QUERY_TIMEOUT_MS,
   }
 }

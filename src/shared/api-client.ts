@@ -45,6 +45,22 @@ export interface RawMarketApy {
  */
 export type RawApyResponse = Record<string, Record<number, RawMarketApy>>
 
+/** Shape of one leaderboard entry from `/api/leaderboard`. */
+export interface RawLeaderboardEntry {
+  rank: number
+  address: string
+  totalPoints: number
+  totalSuppliedUsd: number
+  totalBorrowedUsd: number
+  netWorthUsd: number
+  updatedAt: string
+}
+
+export interface RawLeaderboardResponse {
+  entries: RawLeaderboardEntry[]
+  total: number
+}
+
 export interface RawUserPortfolio {
   portfolio: {
     currentValue: number
@@ -129,6 +145,22 @@ export class PeridotApiClient {
     if (!res.ok) throw new Error(`Failed to fetch APY data: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: RawApyResponse; error?: string }
     if (!json.ok) throw new Error(`APY API error: ${json.error ?? 'unknown'}`)
+    return json.data
+  }
+
+  /**
+   * Fetches the Peridot leaderboard (top users by points).
+   * Optionally filters by chainId and limits the result set.
+   */
+  async getLeaderboard(options?: { limit?: number; chainId?: number }): Promise<RawLeaderboardResponse> {
+    const params = new URLSearchParams()
+    if (options?.limit !== undefined) params.set('limit', String(options.limit))
+    if (options?.chainId !== undefined) params.set('chainId', String(options.chainId))
+    const query = params.toString() ? `?${params.toString()}` : ''
+    const res = await fetch(`${this.baseUrl}/api/leaderboard${query}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    if (!res.ok) throw new Error(`Failed to fetch leaderboard: ${res.status} ${res.statusText}`)
+    const json = (await res.json()) as { ok: boolean; data: RawLeaderboardResponse; error?: string }
+    if (!json.ok) throw new Error(`Leaderboard API error: ${json.error ?? 'unknown'}`)
     return json.data
   }
 

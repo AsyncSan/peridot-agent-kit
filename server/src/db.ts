@@ -18,10 +18,8 @@ const ssl: postgres.Options<{}>['ssl'] =
 
 // DB_QUERY_TIMEOUT_MS caps individual query execution time. 8 seconds is
 // generous for our read-only queries; prevents pool exhaustion from stuck
-// queries during DB degradation. Set higher for analytics, lower for SLA-
-// sensitive endpoints if needed.
-const queryTimeoutRaw = Number(process.env['DB_QUERY_TIMEOUT_MS'] ?? '8000')
-const queryTimeout = Number.isInteger(queryTimeoutRaw) && queryTimeoutRaw > 0 ? queryTimeoutRaw : 8_000
+// queries during DB degradation. Validated by loadEnv() at startup.
+const queryTimeout = Number(process.env['DB_QUERY_TIMEOUT_MS'] ?? '8000')
 
 export const sql = postgres(url, {
   max: 5,
