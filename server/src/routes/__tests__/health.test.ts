@@ -7,6 +7,10 @@ vi.mock('../../db', () => ({
   sql: Object.assign(mockSql, {
     end: vi.fn().mockResolvedValue(undefined),
   }),
+  tables: {
+    assetMetricsLatest: 'asset_metrics_latest_mainnet',
+    apyLatest: 'apy_latest_mainnet',
+  },
 }))
 
 // Import after mocking
@@ -77,5 +81,87 @@ describe('GET /health/db', () => {
     const body = await res.json()
     expect(body.ok).toBe(false)
     expect(typeof body.error).toBe('string')
+  })
+})
+
+// Helper: mock two data-freshness queries (identifier call + two tag template calls)
+function mockDataQuery(metricsUpdatedAt: Date | null, apyTs: Date | null) {
+  mockSql
+    .mockReturnValueOnce('__metrics_table__')          // sql(tables.assetMetricsLatest) identifier
+    .mockResolvedValueOnce([{ updated_at: metricsUpdatedAt }])
+    .mockReturnValueOnce('__apy_table__')              // sql(tables.apyLatest) identifier
+    .mockResolvedValueOnce([{ ts: apyTs }])
+}
+
+describe('GET /health/data', () => {
+  beforeEach(() => {
+    mockSql.mockReset()
+  })
+
+  it('returns 200 with stale: false when both tables are fresh', async () => {
+    const now = new Date()
+    mockDataQuery(new Date(now.getTime() - 60_000), new Date(now.getTime() - 90_000))
+    const res = await makeApp().request('/health/data')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.ok).toBe(true)
+    expect(body.stale).toBe(false)
+    expect(body.metrics.fresh).toBe(true)
+    expect(body.apy.fresh).toBe(true)
+    expect(typeof body.metrics.ageSeconds).toBe('number')
+    expect(body.metrics.ageSeconds).toBeGreaterThan(0)
+  })
+
+  it('returns stale: true when metrics data is old', async () => {
+    const now = new Date()
+    mockDataQuery(new Date(now.getTime() - 400_000), new Date(now.getTime() - 60_000))
+    const res = await makeApp().request('/health/data')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.stale).toBe(true)
+    expect(body.metrics.fresh).toBe(false)
+    expect(body.apy.fresh).toBe(true)
+  })
+
+  it('returns stale: true when APY data is old', async () => {
+    const now = new Date()
+    mockDataQuery(new Date(now.getTime() - 60_000), new Date(now.getTime() - 600_000))
+    const res = await makeApp().request('/health/data')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.stale).toBe(true)
+    expect(body.apy.fresh).toBe(false)
+    expect(body.metrics.fresh).toBe(true)
+  })
+
+  it('returns stale: true when updated_at is null (table empty)', async () => {
+    mockDataQuery(null, null)
+    const res = await makeApp().request('/health/data')
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.stale).toBe(true)
+    expect(body.metrics.updatedAt).toBeNull()
+    expect(body.metrics.ageSeconds).toBeNull()
+    expect(body.apy.updatedAt).toBeNull()
+  })
+
+  it('includes ISO updatedAt strings', async () => {
+    const ts = new Date('2025-01-15T10:00:00Z')
+    mockDataQuery(ts, ts)
+    const res = await makeApp().request('/health/data')
+    const body = await res.json()
+    expect(body.metrics.updatedAt).toBe('2025-01-15T10:00:00.000Z')
+    expect(body.apy.updatedAt).toBe('2025-01-15T10:00:00.000Z')
+  })
+
+  it('returns 503 when DB query throws', async () => {
+    mockSql
+      .mockReturnValueOnce('__table__')
+      .mockRejectedValueOnce(new Error('DB down'))
+    const res = await makeApp().request('/health/data')
+    expect(res.status).toBe(503)
+    const body = await res.json()
+    expect(body.ok).toBe(false)
+    expect(body.error).toContain('DB down')
   })
 })

@@ -103,6 +103,24 @@ async function rawChecks() {
     return { ok: true, detail: `ok=true, ts=${String(body['ts'])}` }
   })
 
+  await check('GET /health/data — ingest freshness', async () => {
+    const res = await fetch(`${API_URL}/health/data`, { signal: AbortSignal.timeout(10_000) })
+    if (!res.ok) return { ok: false, detail: `HTTP ${res.status}` }
+    const body = await res.json() as {
+      ok: boolean
+      stale: boolean
+      thresholdSecs: number
+      metrics: { ageSeconds: number | null; fresh: boolean; updatedAt: string | null }
+      apy: { ageSeconds: number | null; fresh: boolean; updatedAt: string | null }
+    }
+    if (!body.ok) return { ok: false, detail: `ok=false` }
+    const metricsAge = body.metrics.ageSeconds !== null ? `${body.metrics.ageSeconds}s` : 'null (empty)'
+    const apyAge = body.apy.ageSeconds !== null ? `${body.apy.ageSeconds}s` : 'null (empty)'
+    const detail = `metrics=${metricsAge}, apy=${apyAge} (threshold=${body.thresholdSecs}s)`
+    if (body.stale) return { ok: true, detail: `STALE — ${detail}`, warn: true }
+    return { ok: true, detail }
+  })
+
   await check('GET /api/markets/metrics — non-empty', async () => {
     const res = await apiFetch('/api/markets/metrics')
     if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${res.statusText}` }
