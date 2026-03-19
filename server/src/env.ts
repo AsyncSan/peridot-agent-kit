@@ -10,6 +10,13 @@ export interface Env {
   DB_QUERY_TIMEOUT_MS: number
   /** When set, all /api/* and /metrics requests must supply a matching x-api-key header. */
   API_KEY: string | undefined
+  /**
+   * Set to "true" when the server sits behind a trusted reverse proxy
+   * (Nginx, Cloudflare, etc.) that injects X-Forwarded-For / CF-Connecting-IP.
+   * When false (default), those headers are ignored and the real TCP remote
+   * address is used — preventing clients from spoofing IPs to bypass rate limiting.
+   */
+  TRUSTED_PROXY: boolean
 }
 
 /**
@@ -76,6 +83,7 @@ export function loadEnv(env: Record<string, string | undefined> = process.env): 
   }
 
   const API_KEY = env['API_KEY'] || undefined
+  const TRUSTED_PROXY = env['TRUSTED_PROXY'] === 'true'
 
   return {
     DATABASE_URL,
@@ -88,5 +96,6 @@ export function loadEnv(env: Record<string, string | undefined> = process.env): 
     DB_SSL_REJECT_UNAUTHORIZED,
     DB_QUERY_TIMEOUT_MS,
     API_KEY,
+    TRUSTED_PROXY,
   }
 }

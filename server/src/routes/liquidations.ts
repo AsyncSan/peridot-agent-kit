@@ -26,18 +26,22 @@ app.get('/at-risk', async (c) => {
   const minShortfallParam = c.req.query('minShortfall')
   const limitParam = c.req.query('limit')
 
-  const chainId = chainIdParam ? parseInt(chainIdParam, 10) : null
+  // Use Number() so trailing non-numeric characters ('56abc') produce NaN
+  // rather than silently truncating like parseInt/parseFloat would.
+  const chainId = chainIdParam != null ? Number(chainIdParam) : null
   if (chainId !== null && (!Number.isInteger(chainId) || chainId <= 0)) {
     return c.json({ ok: false, error: 'Invalid chainId' }, 400)
   }
 
-  const minShortfall = minShortfallParam ? parseFloat(minShortfallParam) : 0
+  const minShortfall = minShortfallParam != null ? Number(minShortfallParam) : 0
   if (!Number.isFinite(minShortfall) || minShortfall < 0) {
     return c.json({ ok: false, error: 'Invalid minShortfall' }, 400)
   }
 
-  const limitRaw = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT
-  const limit = Math.min(Math.max(1, limitRaw), MAX_LIMIT)
+  const limitRaw = limitParam != null ? Number(limitParam) : DEFAULT_LIMIT
+  const limit = Number.isInteger(limitRaw) && limitRaw > 0
+    ? Math.min(limitRaw, MAX_LIMIT)
+    : DEFAULT_LIMIT
 
   const cacheKey = `liquidations:${chainId ?? 'all'}:${minShortfall}:${limit}`
 

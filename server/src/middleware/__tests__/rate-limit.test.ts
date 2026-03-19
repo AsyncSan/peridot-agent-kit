@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, beforeAll, afterAll, beforeEach } from 'vitest'
 import { Hono } from 'hono'
-import { rateLimit } from '../rate-limit'
+import { rateLimit, _clearWindowsForTesting } from '../rate-limit'
 
 // Each test uses a unique IP drawn from this counter so the module-level
 // windows Map never has cross-test contamination — no beforeEach needed.
@@ -23,7 +23,11 @@ async function req(
   return app.request(path, { headers: { 'x-forwarded-for': ip } })
 }
 
+// The main suite uses TRUSTED_PROXY=true so header-based IP tracking works in tests
+// (Hono's test runner has no real socket, so remoteAddress is always undefined).
 describe('rateLimit middleware', () => {
+  beforeAll(() => { process.env['TRUSTED_PROXY'] = 'true' })
+  afterAll(() => { delete process.env['TRUSTED_PROXY'] })
   it('allows requests under the limit', async () => {
     const ip = nextIp()
     const app = makeApp(5)
@@ -139,5 +143,29 @@ describe('rateLimit middleware', () => {
       headers: { 'x-forwarded-for': ip },
     })
     expect(healthRes.status).toBe(200)
+  })
+})
+
+describe('rateLimit middleware — TRUSTED_PROXY=false (default)', () => {
+  beforeAll(() => { delete process.env['TRUSTED_PROXY'] })
+  beforeEach(() => { _clearWindowsForTesting() })
+
+  it('ignores x-forwarded-for — different header IPs share the same bucket', async () => {
+    // In untrusted mode, all requests without a real socket get IP='unknown'
+    // so two requests with different x-forwarded-for values are treated as the same client
+    const app = makeApp(1)
+    const r1 = await app.request('/api/test', { headers: { 'x-forwarded-for': nextIp() } })
+    expect(r1.status).toBe(200)
+    // Second request — different spoofed IP but still 'unknown' bucket → blocked
+    const r2 = await app.request('/api/test', { headers: { 'x-forwarded-for': nextIp() } })
+    expect(r2.status).toBe(429)
+  })
+
+  it('ignores cf-connecting-ip — cannot bypass via Cloudflare header spoofing', async () => {
+    const app = makeApp(1)
+    const r1 = await app.request('/api/test', { headers: { 'cf-connecting-ip': nextIp() } })
+    expect(r1.status).toBe(200)
+    const r2 = await app.request('/api/test', { headers: { 'cf-connecting-ip': nextIp() } })
+    expect(r2.status).toBe(429)
   })
 })
