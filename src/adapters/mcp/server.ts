@@ -12,7 +12,7 @@
  *
  * Environment variables:
  *   PERIDOT_API_URL      — Peridot platform URL (default: https://app.peridot.finance)
- *   BICONOMY_API_KEY     — Required for cross-chain intent tools
+ *   BICONOMY_API_KEY     — Optional. Required only for cross-chain tools (Arbitrum, Base, Ethereum, Polygon, Optimism, Avalanche). BSC/Monad/Somnia work without it.
  *   PERIDOT_NETWORK      — "mainnet" | "testnet" (default: "mainnet")
  *   PERIDOT_RPC_BSC      — Custom BSC RPC URL (optional)
  *   PERIDOT_RPC_ARB      — Custom Arbitrum RPC URL (optional)

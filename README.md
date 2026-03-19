@@ -34,6 +34,8 @@ Add this to `~/.claude/claude_desktop_config.json` (or your Cursor MCP config):
 }
 ```
 
+`BICONOMY_API_KEY` is optional — omit it if you only use BSC, Monad, or Somnia. It's only needed for cross-chain tools (Arbitrum, Base, Ethereum, Polygon, Optimism, Avalanche).
+
 Restart Claude Desktop. Ask it *"What can I lend on Peridot?"* — it just works.
 
 **Use in your own agent (LangChain)**
