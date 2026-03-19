@@ -1,0 +1,43 @@
+startCommand:
+  type: stdio
+  configSchema:
+    type: object
+    properties:
+      biconomyApiKey:
+        type: string
+        title: Biconomy API Key
+        description: "Required for cross-chain tools (Arbitrum, Base, Ethereum, Polygon, Optimism, Avalanche). Not needed for BSC, Monad, or Somnia."
+      peridotApiUrl:
+        type: string
+        title: Peridot API URL
+        description: "Override the Peridot platform API. Default: https://app.peridot.finance"
+        default: "https://app.peridot.finance"
+      network:
+        type: string
+        title: Network
+        description: "mainnet or testnet"
+        enum: ["mainnet", "testnet"]
+        default: "mainnet"
+      rpcBsc:
+        type: string
+        title: BSC RPC URL
+        description: "Custom BSC RPC endpoint. Uses public default if omitted."
+      rpcArbitrum:
+        type: string
+        title: Arbitrum RPC URL
+        description: "Custom Arbitrum RPC endpoint. Uses public default if omitted."
+  commandFunction: |-
+    (config) => ({
+      command: "npx",
+      args: ["-y", "-p", "@peridot-agent/agent-kit", "peridot-mcp"],
+      env: {
+        ...(config.biconomyApiKey ? { BICONOMY_API_KEY: config.biconomyApiKey } : {}),
+        ...(config.peridotApiUrl ? { PERIDOT_API_URL: config.peridotApiUrl } : {}),
+        ...(config.network ? { PERIDOT_NETWORK: config.network } : {}),
+        ...(config.rpcBsc ? { PERIDOT_RPC_BSC: config.rpcBsc } : {}),
+        ...(config.rpcArbitrum ? { PERIDOT_RPC_ARB: config.rpcArbitrum } : {})
+      }
+    })
+  exampleConfig:
+    biconomyApiKey: "your-biconomy-key-here"
+    network: "mainnet"
