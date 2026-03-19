@@ -135,7 +135,7 @@ The MCP server exposes all Peridot tools over [Model Context Protocol](https://m
 
 | Variable | Required | Description |
 |---|---|---|
-| `BICONOMY_API_KEY` | Yes (cross-chain tools) | Biconomy MEE API key |
+| `BICONOMY_API_KEY` | No* | Biconomy MEE API key. Required only for cross-chain tools (Arbitrum, Base, Ethereum, Polygon, Optimism, Avalanche). BSC, Monad, and Somnia work without it. |
 | `PERIDOT_API_URL` | No | Override platform API (default: `https://app.peridot.finance`) |
 | `PERIDOT_NETWORK` | No | `mainnet` (default) or `testnet` |
 | `PERIDOT_RPC_BSC` | No | Custom BSC RPC URL |
