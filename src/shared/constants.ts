@@ -210,10 +210,10 @@ export function getAssetDecimals(asset: string): number {
 export const DEFAULT_RPC_URLS: Partial<Record<number, string>> = {
   [BSC_MAINNET_CHAIN_ID]: 'https://bsc-dataseed.binance.org',
   [BSC_TESTNET_CHAIN_ID]: 'https://data-seed-prebsc-1-s1.binance.org:8545',
-  [MONAD_MAINNET_CHAIN_ID]: 'https://monad-mainnet.g.alchemy.com/public',
+  [MONAD_MAINNET_CHAIN_ID]: 'https://rpc.monad.xyz',
   [MONAD_TESTNET_CHAIN_ID]: 'https://testnet-rpc.monad.xyz',
   [SOMNIA_MAINNET_CHAIN_ID]: 'https://dream-rpc.somnia.network',
-  [SOMNIA_TESTNET_CHAIN_ID]: 'https://dream-rpc.somnia.network',
+  [SOMNIA_TESTNET_CHAIN_ID]: 'https://testnet.rpc.somnia.network',
   [ARBITRUM_CHAIN_ID]: 'https://arb1.arbitrum.io/rpc',
   [BASE_CHAIN_ID]: 'https://mainnet.base.org',
   [ETHEREUM_CHAIN_ID]: 'https://eth.llamarpc.com',

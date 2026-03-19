@@ -61,19 +61,19 @@ describe('GET /api/apy', () => {
     expect(body.ok).toBe(true)
   })
 
-  it('returns data keyed by uppercase asset ID then chainId', async () => {
+  it('returns data keyed by lowercase asset ID then chainId', async () => {
     mockQuery([USDC_ROW])
     const res = await makeApp().request('/api/apy')
     const { data } = await res.json()
-    expect(data).toHaveProperty('USDC')
-    expect(data['USDC']).toHaveProperty('56')
+    expect(data).toHaveProperty('usdc')
+    expect(data['usdc']).toHaveProperty('56')
   })
 
   it('coerces all APY fields to numbers', async () => {
     mockQuery([USDC_ROW])
     const res = await makeApp().request('/api/apy')
     const { data } = await res.json()
-    const entry = data['USDC']['56']
+    const entry = data['usdc']['56']
     expect(typeof entry.supplyApy).toBe('number')
     expect(typeof entry.borrowApy).toBe('number')
     expect(typeof entry.peridotSupplyApy).toBe('number')
@@ -88,7 +88,7 @@ describe('GET /api/apy', () => {
     mockQuery([USDC_ROW])
     const res = await makeApp().request('/api/apy')
     const { data } = await res.json()
-    const entry = data['USDC']['56']
+    const entry = data['usdc']['56']
     expect(entry.supplyApy).toBe(3.21)
     expect(entry.borrowApy).toBe(5.67)
     expect(entry.totalSupplyApy).toBe(5.01)
@@ -99,15 +99,15 @@ describe('GET /api/apy', () => {
     mockQuery([USDC_ROW])
     const res = await makeApp().request('/api/apy')
     const { data } = await res.json()
-    expect(data['USDC']['56'].timestamp).toBe('2024-01-01T00:00:00.000Z')
+    expect(data['usdc']['56'].timestamp).toBe('2024-01-01T00:00:00.000Z')
   })
 
   it('returns multiple assets when multiple rows are present', async () => {
     mockQuery([USDC_ROW, WETH_ROW])
     const res = await makeApp().request('/api/apy')
     const { data } = await res.json()
-    expect('USDC' in data).toBe(true)
-    expect('WETH' in data).toBe(true)
+    expect('usdc' in data).toBe(true)
+    expect('weth' in data).toBe(true)
   })
 
   it('defaults null APY fields to 0 instead of NaN', async () => {
@@ -115,8 +115,8 @@ describe('GET /api/apy', () => {
     mockQuery([row])
     const res = await makeApp().request('/api/apy')
     const { data } = await res.json()
-    expect(data['USDC']['56'].supplyApy).toBe(0)
-    expect(data['USDC']['56'].borrowApy).toBe(0)
+    expect(data['usdc']['56'].supplyApy).toBe(0)
+    expect(data['usdc']['56'].borrowApy).toBe(0)
   })
 
   it('returns empty object when table has no rows', async () => {
@@ -174,6 +174,6 @@ describe('GET /api/apy?chainId=', () => {
     const res = await makeApp().request('/api/apy?chainId=56')
     const { data } = await res.json()
     // only chainId 56 should be present
-    expect(data['USDC']).toHaveProperty('56')
+    expect(data['usdc']).toHaveProperty('56')
   })
 })

@@ -155,7 +155,7 @@ describe('simulateBorrow — edge and error cases', () => {
     setupMocks(0, 0)
     const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
     expect(result.riskLevel).toBe('liquidatable')
-    expect(result.warning).toContain('No collateral')
+    expect(result.warning).toContain('no supplied collateral')
   })
 
   it('throws for an invalid (non-numeric) amount', async () => {

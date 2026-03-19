@@ -79,7 +79,9 @@ export async function simulateBorrow(
       riskLevel: 'liquidatable',
       maxSafeBorrowUsd: 0,
       warning:
-        'No collateral supplied. You must supply assets and enable them as collateral before borrowing.',
+        'Portfolio shows no supplied collateral (data is sourced from indexed DB snapshots and may ' +
+        'not reflect activity from the last few minutes). If you recently supplied assets, wait for ' +
+        'the next snapshot update. Otherwise, supply assets and enable them as collateral before borrowing.',
     }
   }
 

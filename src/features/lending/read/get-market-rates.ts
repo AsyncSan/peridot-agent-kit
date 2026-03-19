@@ -42,6 +42,23 @@ export async function getMarketRates(
 
   // APY data is keyed by lowercase asset ID, then by chainId
   const apy = apyData[assetUpper.toLowerCase()]?.[input.chainId]
+  const apyDataAvailable = apy !== undefined
+
+  const dataAgeSeconds = metric.updatedAt
+    ? Math.round((Date.now() - new Date(metric.updatedAt).getTime()) / 1000)
+    : 0
+
+  const warnings: string[] = []
+  if (!apyDataAvailable) {
+    warnings.push(
+      `APY data is not yet available for ${assetUpper} on chain ${input.chainId}. ` +
+        `All yield figures (supplyApyPct, borrowApyPct, totalSupplyApyPct, etc.) are showing 0 as a placeholder — ` +
+        `do NOT present them as real rates. The APY indexer may still be catching up.`,
+    )
+  }
+  if (dataAgeSeconds > 300) {
+    warnings.push(`Market data is ${Math.round(dataAgeSeconds / 60)} minutes old — figures may not reflect current conditions.`)
+  }
 
   return {
     asset: assetUpper,
@@ -60,5 +77,8 @@ export async function getMarketRates(
     priceUsd: metric.priceUsd,
     collateralFactorPct: metric.collateral_factor_pct ?? 0,
     updatedAt: metric.updatedAt,
+    dataAgeSeconds,
+    apyDataAvailable,
+    warning: warnings.length > 0 ? warnings.join(' ') : undefined,
   }
 }

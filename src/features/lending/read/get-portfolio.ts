@@ -33,6 +33,7 @@ export async function getPortfolio(
 
     return {
       address: input.address,
+      fetchedAt: new Date().toISOString(),
       portfolio: {
         currentValue: data.portfolio.currentValue,
         totalSupplied: data.portfolio.totalSupplied,

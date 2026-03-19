@@ -8,6 +8,8 @@ export interface Env {
   RATE_LIMIT_WINDOW_MS: number
   DB_SSL_REJECT_UNAUTHORIZED: boolean
   DB_QUERY_TIMEOUT_MS: number
+  /** When set, all /api/* and /metrics requests must supply a matching x-api-key header. */
+  API_KEY: string | undefined
 }
 
 /**
@@ -73,6 +75,8 @@ export function loadEnv(env: Record<string, string | undefined> = process.env): 
     throw new Error(`DB_QUERY_TIMEOUT_MS must be a positive integer, got "${queryTimeoutRaw}"`)
   }
 
+  const API_KEY = env['API_KEY'] || undefined
+
   return {
     DATABASE_URL,
     PORT,
@@ -83,5 +87,6 @@ export function loadEnv(env: Record<string, string | undefined> = process.env): 
     RATE_LIMIT_WINDOW_MS,
     DB_SSL_REJECT_UNAUTHORIZED,
     DB_QUERY_TIMEOUT_MS,
+    API_KEY,
   }
 }

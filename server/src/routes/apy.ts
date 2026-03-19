@@ -60,7 +60,7 @@ async function fetchApy(chainId: string | null): Promise<Record<string, unknown>
 
   const apyData: Record<string, Record<number, unknown>> = {}
   for (const row of rows) {
-    const aId = String(row.asset_id ?? '').toUpperCase()
+    const aId = String(row.asset_id ?? '').toLowerCase()
     const cId = Number(row.chain_id)
     if (!apyData[aId]) apyData[aId] = {}
     apyData[aId][cId] = {

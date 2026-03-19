@@ -64,6 +64,16 @@ export interface MarketRates {
   priceUsd: number
   collateralFactorPct: number
   updatedAt: string
+  /** Seconds elapsed since updatedAt. Use this to detect stale market data. */
+  dataAgeSeconds: number
+  /**
+   * False when the APY table has no entry for this asset/chain.
+   * All APY fields will be 0 — do NOT present them as real rates.
+   * Inform the user that yield data is not yet available.
+   */
+  apyDataAvailable: boolean
+  /** Present when apyDataAvailable=false or data is unusually stale (>5 min). */
+  warning?: string | undefined
 }
 
 export interface MarketSummary {
@@ -75,6 +85,8 @@ export interface MarketSummary {
   liquidityUsd: number
   collateralFactorPct: number
   updatedAt: string
+  /** Seconds elapsed since updatedAt. Values above 300 indicate a stale data feed. */
+  dataAgeSeconds: number
 }
 
 export interface LeaderboardEntry {
@@ -108,10 +120,16 @@ export interface UserPosition {
     repayCount: number
     redeemCount: number
   }
+  /** ISO timestamp of when this data was fetched. Portfolio data is indexed from chain events
+   *  and may lag recent on-chain activity by up to ~60 seconds. */
+  fetchedAt: string
 }
 
 export interface PortfolioOverview {
   address: string
+  /** ISO timestamp of when this data was fetched. Portfolio data is indexed from chain events
+   *  and may lag recent on-chain activity by up to ~60 seconds. */
+  fetchedAt: string
   portfolio: {
     currentValue: number
     totalSupplied: number

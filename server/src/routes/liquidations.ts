@@ -1,5 +1,8 @@
 import { Hono } from 'hono'
 import { sql, tables } from '../db'
+import { Cache } from '../cache'
+
+const cache = new Cache<{ accounts: unknown[]; count: number }>(10_000) // 10s
 
 const app = new Hono()
 
@@ -16,6 +19,7 @@ const DEFAULT_LIMIT = 50
  *
  * Returns accounts where shortfall_usd > 0, ordered by shortfall descending.
  * Data is written by scan_account_health.py running on cron.
+ * Results are cached for 10s to protect the DB under concurrent liquidation bot traffic.
  */
 app.get('/at-risk', async (c) => {
   const chainIdParam = c.req.query('chainId')
@@ -35,33 +39,11 @@ app.get('/at-risk', async (c) => {
   const limitRaw = limitParam ? parseInt(limitParam, 10) : DEFAULT_LIMIT
   const limit = Math.min(Math.max(1, limitRaw), MAX_LIMIT)
 
+  const cacheKey = `liquidations:${chainId ?? 'all'}:${minShortfall}:${limit}`
+
   try {
-    const rows = chainId !== null
-      ? await sql`
-          SELECT address, chain_id, liquidity_usd::float, shortfall_usd::float, checked_at
-          FROM ${sql(tables.accountHealth)}
-          WHERE shortfall_usd > ${minShortfall}
-            AND chain_id = ${chainId}
-          ORDER BY shortfall_usd DESC
-          LIMIT ${limit}
-        `
-      : await sql`
-          SELECT address, chain_id, liquidity_usd::float, shortfall_usd::float, checked_at
-          FROM ${sql(tables.accountHealth)}
-          WHERE shortfall_usd > ${minShortfall}
-          ORDER BY shortfall_usd DESC
-          LIMIT ${limit}
-        `
-
-    const accounts = rows.map((r) => ({
-      address: String(r.address),
-      chainId: Number(r.chain_id),
-      liquidityUsd: Number(r.liquidity_usd ?? 0),
-      shortfallUsd: Number(r.shortfall_usd ?? 0),
-      checkedAt: new Date(r.checked_at as string).toISOString(),
-    }))
-
-    return c.json({ ok: true, data: { accounts, count: accounts.length } }, 200, {
+    const data = await cache.getOrFetch(cacheKey, () => fetchAtRisk(chainId, minShortfall, limit))
+    return c.json({ ok: true, data }, 200, {
       'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
     })
   } catch (err) {
@@ -69,5 +51,38 @@ app.get('/at-risk', async (c) => {
     return c.json({ ok: false, error: 'Failed to fetch at-risk accounts' }, 500)
   }
 })
+
+async function fetchAtRisk(
+  chainId: number | null,
+  minShortfall: number,
+  limit: number,
+): Promise<{ accounts: unknown[]; count: number }> {
+  const rows = chainId !== null
+    ? await sql`
+        SELECT address, chain_id, liquidity_usd::float, shortfall_usd::float, checked_at
+        FROM ${sql(tables.accountHealth)}
+        WHERE shortfall_usd > ${minShortfall}
+          AND chain_id = ${chainId}
+        ORDER BY shortfall_usd DESC
+        LIMIT ${limit}
+      `
+    : await sql`
+        SELECT address, chain_id, liquidity_usd::float, shortfall_usd::float, checked_at
+        FROM ${sql(tables.accountHealth)}
+        WHERE shortfall_usd > ${minShortfall}
+        ORDER BY shortfall_usd DESC
+        LIMIT ${limit}
+      `
+
+  const accounts = rows.map((r) => ({
+    address: String(r.address),
+    chainId: Number(r.chain_id),
+    liquidityUsd: Number(r.liquidity_usd ?? 0),
+    shortfallUsd: Number(r.shortfall_usd ?? 0),
+    checkedAt: new Date(r.checked_at as string).toISOString(),
+  }))
+
+  return { accounts, count: accounts.length }
+}
 
 export { app as liquidationsRoute }

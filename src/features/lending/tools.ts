@@ -154,7 +154,12 @@ export const lendingTools: ToolDefinition<any, any>[] = [
     name: 'get_liquidatable_positions',
     description:
       'Fetch a list of borrowers currently underwater (shortfallUsd > 0) and eligible for liquidation ' +
-      'on Peridot hub chains. Data is sourced from the on-chain health scanner that runs every minute. ' +
+      'on Peridot hub chains. Data is sourced from the on-chain health scanner that indexes borrow events ' +
+      'and recomputes account health periodically. ' +
+      'IMPORTANT: if this returns an empty list, the scanner pipeline (scan_borrow_events + ' +
+      'scan_account_health) may not have run yet — the data table could be empty rather than meaning ' +
+      'no positions are underwater. In that case, inform the user that liquidation data is not yet ' +
+      'available and suggest checking back later. ' +
       'Each result contains: address, chainId, shortfallUsd (how far underwater in USD), ' +
       'liquidityUsd (0 when underwater), and checkedAt (when last scanned). ' +
       'Results are ordered by shortfallUsd descending — the most undercollateralised positions first. ' +
@@ -284,6 +289,9 @@ export const lendingTools: ToolDefinition<any, any>[] = [
       'Optimism (10), or Avalanche (43114). ' +
       'Do NOT use this for BSC (56), Monad (143), or Somnia (1868) — those are hub chains, ' +
       'use build_hub_supply_intent instead. ' +
+      'REQUIRES: biconomyApiKey must be set in config (BICONOMY_API_KEY env var on the MCP server). ' +
+      'If it is not set, this tool will fail — inform the user that cross-chain operations are not ' +
+      'available in this deployment. ' +
       'Bridges tokens from the spoke chain to BSC and deposits into Peridot atomically. ' +
       'Returns biconomyInstructions — the user signs one transaction in their dApp, which submits ' +
       'the payload to Biconomy /execute. ' +
@@ -299,6 +307,9 @@ export const lendingTools: ToolDefinition<any, any>[] = [
       'Borrow from Peridot on BSC and optionally bridge the borrowed amount back to a spoke chain, ' +
       'all in a single atomic cross-chain operation via Biconomy MEE. ' +
       'REQUIRED BEFORE CALLING THIS: run simulate_borrow and confirm isSafe=true. ' +
+      'REQUIRES: biconomyApiKey must be set in config (BICONOMY_API_KEY env var on the MCP server). ' +
+      'If it is not set, this tool will fail — inform the user that cross-chain operations are not ' +
+      'available in this deployment. ' +
       'Returns biconomyInstructions for a single user signature in their dApp. ' +
       'Use check_transaction_status to track the cross-chain execution.',
     inputSchema: crossChainBorrowSchema,
@@ -312,6 +323,9 @@ export const lendingTools: ToolDefinition<any, any>[] = [
       'Repay a Peridot borrow using tokens held on a spoke chain — for example, repay a ' +
       'BSC USDC debt by spending USDC on Arbitrum. Bridges and repays in one atomic operation. ' +
       'Useful when the user wants to repay but their tokens are not on BSC. ' +
+      'REQUIRES: biconomyApiKey must be set in config (BICONOMY_API_KEY env var on the MCP server). ' +
+      'If it is not set, this tool will fail — inform the user that cross-chain operations are not ' +
+      'available in this deployment. ' +
       'Returns biconomyInstructions for a single user signature in their dApp.',
     inputSchema: crossChainRepaySchema,
     execute: buildCrossChainRepayIntent,
@@ -325,6 +339,9 @@ export const lendingTools: ToolDefinition<any, any>[] = [
       'all in one atomic cross-chain operation. ' +
       'ALWAYS call get_user_position first to check for active borrows; ' +
       'if present, also call get_account_liquidity to verify the withdrawal will not cause a shortfall. ' +
+      'REQUIRES: biconomyApiKey must be set in config (BICONOMY_API_KEY env var on the MCP server). ' +
+      'If it is not set, this tool will fail — inform the user that cross-chain operations are not ' +
+      'available in this deployment. ' +
       'Returns biconomyInstructions for a single user signature in their dApp.',
     inputSchema: crossChainWithdrawSchema,
     execute: buildCrossChainWithdrawIntent,

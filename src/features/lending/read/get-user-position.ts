@@ -42,5 +42,6 @@ export async function getUserPosition(
       repayCount: transactions.repayCount,
       redeemCount: transactions.redeemCount,
     },
+    fetchedAt: new Date().toISOString(),
   }
 }

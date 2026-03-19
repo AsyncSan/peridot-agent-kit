@@ -4,6 +4,29 @@ import { BICONOMY_API_URL, DEFAULT_API_BASE_URL } from './constants'
 const PLATFORM_TIMEOUT_MS = 10_000
 /** Longer timeout for Biconomy compose — builds a full cross-chain route (ms). */
 const BICONOMY_COMPOSE_TIMEOUT_MS = 30_000
+/** Delay before the single automatic retry (ms). */
+const RETRY_DELAY_MS = 200
+
+/**
+ * Fetches a URL with one automatic retry on network errors or 5xx responses.
+ * 4xx responses are NOT retried — they indicate a client error.
+ */
+async function fetchWithRetry(url: string, init: RequestInit): Promise<Response> {
+  const attempt = () => fetch(url, init)
+  let res: Response
+  try {
+    res = await attempt()
+  } catch (err) {
+    // Network-level failure (timeout, DNS, etc.) — retry once
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+    return attempt()
+  }
+  if (res.status >= 500) {
+    await new Promise((r) => setTimeout(r, RETRY_DELAY_MS))
+    return attempt()
+  }
+  return res
+}
 import type {
   BiconomyResponse,
   ComposeRequest,
@@ -47,6 +70,24 @@ export interface RawMarketApy {
 export type RawApyResponse = Record<string, Record<number, RawMarketApy>>
 
 /** Shape of one leaderboard entry from `/api/leaderboard`. */
+export interface RawTransaction {
+  txHash: string
+  chainId: number
+  blockNumber: number
+  actionType: string
+  tokenSymbol: string | null
+  amount: number
+  usdValue: number
+  pointsAwarded: number
+  verifiedAt: string
+  contractAddress: string
+}
+
+export interface RawTransactionsResponse {
+  transactions: RawTransaction[]
+  total: number
+}
+
 export interface RawLeaderboardEntry {
   rank: number
   address: string
@@ -110,7 +151,7 @@ export class PeridotApiClient {
    * Example key: `USDC:56`
    */
   async getMarketMetrics(): Promise<Record<string, RawMarketMetric>> {
-    const res = await fetch(`${this.baseUrl}/api/markets/metrics`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    const res = await fetchWithRetry(`${this.baseUrl}/api/markets/metrics`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch market metrics: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: Record<string, RawMarketMetric>; error?: string }
     if (!json.ok) throw new Error(`Market metrics API error: ${json.error ?? 'unknown'}`)
@@ -125,7 +166,7 @@ export class PeridotApiClient {
     if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
       throw new Error(`Invalid address format: "${address}". Expected 0x followed by 40 hex characters.`)
     }
-    const res = await fetch(`${this.baseUrl}/api/user/portfolio-data?address=${address}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    const res = await fetchWithRetry(`${this.baseUrl}/api/user/portfolio-data?address=${address}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch portfolio: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: RawUserPortfolio; error?: string }
     if (!json.ok) throw new Error(`Portfolio API error: ${json.error ?? 'unknown'}`)
@@ -143,7 +184,7 @@ export class PeridotApiClient {
     const url = chainId
       ? `${this.baseUrl}/api/apy?chainId=${chainId}`
       : `${this.baseUrl}/api/apy`
-    const res = await fetch(url, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    const res = await fetchWithRetry(url, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch APY data: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: RawApyResponse; error?: string }
     if (!json.ok) throw new Error(`APY API error: ${json.error ?? 'unknown'}`)
@@ -159,7 +200,7 @@ export class PeridotApiClient {
     if (options?.limit !== undefined) params.set('limit', String(options.limit))
     if (options?.chainId !== undefined) params.set('chainId', String(options.chainId))
     const query = params.toString() ? `?${params.toString()}` : ''
-    const res = await fetch(`${this.baseUrl}/api/leaderboard${query}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    const res = await fetchWithRetry(`${this.baseUrl}/api/leaderboard${query}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch leaderboard: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: RawLeaderboardResponse; error?: string }
     if (!json.ok) throw new Error(`Leaderboard API error: ${json.error ?? 'unknown'}`)
@@ -180,10 +221,32 @@ export class PeridotApiClient {
     if (options?.minShortfall !== undefined) params.set('minShortfall', String(options.minShortfall))
     if (options?.limit !== undefined) params.set('limit', String(options.limit))
     const query = params.toString() ? `?${params.toString()}` : ''
-    const res = await fetch(`${this.baseUrl}/api/liquidations/at-risk${query}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    const res = await fetchWithRetry(`${this.baseUrl}/api/liquidations/at-risk${query}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (!res.ok) throw new Error(`Failed to fetch liquidatable positions: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: LiquidatablePositions; error?: string }
     if (!json.ok) throw new Error(`Liquidations API error: ${json.error ?? 'unknown'}`)
+    return json.data
+  }
+
+  /**
+   * Fetches verified transaction history for a wallet address.
+   * Optionally filters by chainId and/or actionType.
+   */
+  async getUserTransactions(
+    address: string,
+    options?: { limit?: number; chainId?: number; actionType?: 'supply' | 'borrow' | 'repay' | 'redeem' },
+  ): Promise<RawTransactionsResponse> {
+    if (!/^0x[0-9a-fA-F]{40}$/.test(address)) {
+      throw new Error(`Invalid address format: "${address}". Expected 0x followed by 40 hex characters.`)
+    }
+    const params = new URLSearchParams({ address })
+    if (options?.limit !== undefined) params.set('limit', String(options.limit))
+    if (options?.chainId !== undefined) params.set('chainId', String(options.chainId))
+    if (options?.actionType !== undefined) params.set('actionType', options.actionType)
+    const res = await fetchWithRetry(`${this.baseUrl}/api/user/transactions?${params.toString()}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    if (!res.ok) throw new Error(`Failed to fetch transactions: ${res.status} ${res.statusText}`)
+    const json = (await res.json()) as { ok: boolean; data: RawTransactionsResponse; error?: string }
+    if (!json.ok) throw new Error(`Transactions API error: ${json.error ?? 'unknown'}`)
     return json.data
   }
 
@@ -213,7 +276,7 @@ export class PeridotApiClient {
 
   /** Polls Biconomy for the status of a submitted super-transaction. */
   async biconomyGetStatus(superTxHash: string): Promise<TransactionStatus> {
-    const res = await fetch(`${BICONOMY_API_URL}/v1/explorer/transaction/${superTxHash}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    const res = await fetchWithRetry(`${BICONOMY_API_URL}/v1/explorer/transaction/${superTxHash}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
     if (res.status === 404) return { superTxHash, status: 'not_found' }
     if (!res.ok) throw new Error(`Biconomy status error: ${res.status}`)
     const data = (await res.json()) as Record<string, unknown>

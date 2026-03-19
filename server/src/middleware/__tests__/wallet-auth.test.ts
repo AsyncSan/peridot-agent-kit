@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { Hono } from 'hono'
 import { buildAuthMessage, walletAuth } from '../wallet-auth'
 
@@ -19,6 +19,13 @@ function nowSeconds() {
 function makeApp(maxAgeSecs?: number) {
   const app = new Hono()
   app.use('/protected/*', walletAuth(maxAgeSecs))
+  app.get('/protected/data', (c) => c.json({ success: true }))
+  return app
+}
+
+function makeAppWithApiKeyBypass() {
+  const app = new Hono()
+  app.use('/protected/*', walletAuth({ allowApiKey: true }))
   app.get('/protected/data', (c) => c.json({ success: true }))
   return app
 }
@@ -46,6 +53,69 @@ describe('buildAuthMessage', () => {
     const a = buildAuthMessage(VALID_ADDRESS, 9999)
     const b = buildAuthMessage(VALID_ADDRESS, 9999)
     expect(a).toBe(b)
+  })
+})
+
+describe('walletAuth middleware — API key bypass', () => {
+  const VALID_KEY = 'test-api-key-abc123'
+
+  beforeEach(() => {
+    mockRecover.mockReset()
+    process.env['API_KEY'] = VALID_KEY
+  })
+
+  afterEach(() => {
+    delete process.env['API_KEY']
+  })
+
+  it('bypasses wallet auth when allowApiKey=true and key matches', async () => {
+    const res = await makeAppWithApiKeyBypass().request(
+      `/protected/data?address=${VALID_ADDRESS}`,
+      { headers: { 'x-api-key': VALID_KEY } },
+    )
+    expect(res.status).toBe(200)
+    expect(mockRecover).not.toHaveBeenCalled()
+  })
+
+  it('falls through to wallet auth when key is wrong', async () => {
+    // Wrong API key → bypass skipped → wallet sig check runs → other address recovered → 401
+    mockRecover.mockResolvedValueOnce(OTHER_ADDRESS)
+    const res = await makeAppWithApiKeyBypass().request(
+      `/protected/data?address=${VALID_ADDRESS}`,
+      { headers: { 'x-api-key': 'wrong-key', 'x-wallet-signature': VALID_SIG, 'x-wallet-timestamp': String(nowSeconds()) } },
+    )
+    expect(res.status).toBe(401)
+    const body = await res.json()
+    expect(body.error).toMatch(/does not match/i)
+  })
+
+  it('falls through to wallet auth when no x-api-key header', async () => {
+    const res = await makeAppWithApiKeyBypass().request(
+      `/protected/data?address=${VALID_ADDRESS}`,
+    )
+    expect(res.status).toBe(401)
+  })
+
+  it('does NOT bypass when allowApiKey=false even with correct key', async () => {
+    // Default walletAuth (no allowApiKey) ignores the key header entirely
+    const app = new Hono()
+    app.use('/protected/*', walletAuth())
+    app.get('/protected/data', (c) => c.json({ success: true }))
+    const res = await app.request(
+      `/protected/data?address=${VALID_ADDRESS}`,
+      { headers: { 'x-api-key': VALID_KEY } },
+    )
+    expect(res.status).toBe(401)
+    expect(mockRecover).not.toHaveBeenCalled()
+  })
+
+  it('does NOT bypass when API_KEY env is not set', async () => {
+    delete process.env['API_KEY']
+    const res = await makeAppWithApiKeyBypass().request(
+      `/protected/data?address=${VALID_ADDRESS}`,
+      { headers: { 'x-api-key': VALID_KEY } },
+    )
+    expect(res.status).toBe(401)
   })
 })
 

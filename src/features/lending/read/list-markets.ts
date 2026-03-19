@@ -24,6 +24,9 @@ export async function listMarkets(
     .filter(([, m]) => input.chainId === undefined || m.chainId === input.chainId)
     .map(([key, m]) => {
       const [asset] = key.split(':')
+      const dataAgeSeconds = m.updatedAt
+        ? Math.round((Date.now() - new Date(m.updatedAt).getTime()) / 1000)
+        : 0
       return {
         asset: asset ?? key,
         chainId: m.chainId,
@@ -33,6 +36,7 @@ export async function listMarkets(
         liquidityUsd: m.liquidityUsd,
         collateralFactorPct: m.collateral_factor_pct,
         updatedAt: m.updatedAt,
+        dataAgeSeconds,
       }
     })
     .sort((a, b) => b.tvlUsd - a.tvlUsd)

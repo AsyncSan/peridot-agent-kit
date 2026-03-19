@@ -15,6 +15,20 @@ export function buildAuthMessage(address: string, timestamp: number): string {
   return `Peridot: Access portfolio for ${address.toLowerCase()} at ${timestamp}`
 }
 
+export interface WalletAuthOptions {
+  maxAgeSeconds?: number
+  /**
+   * When true, a valid `x-api-key` header (matching the `API_KEY` env var)
+   * bypasses wallet signature verification. This allows server-side AI agents
+   * to query any address without holding the user's private key.
+   *
+   * Only enable on deployments where the API key is kept server-side and not
+   * exposed to end users — possession of the API key grants read access to any
+   * address's portfolio and transaction data.
+   */
+  allowApiKey?: boolean
+}
+
 /**
  * Wallet-signature authentication middleware for portfolio endpoints.
  *
@@ -27,13 +41,29 @@ export function buildAuthMessage(address: string, timestamp: number): string {
  *
  * Short-circuits to next() if no `address` query param is present so the
  * route handler can return its own 400 for missing address.
+ *
+ * When allowApiKey=true, a matching x-api-key header bypasses wallet auth
+ * entirely — intended for server-side AI agents that cannot hold private keys.
  */
-export function walletAuth(maxAgeSeconds = DEFAULT_MAX_AGE_SECONDS): MiddlewareHandler {
+export function walletAuth(options: WalletAuthOptions | number = {}): MiddlewareHandler {
+  // Support legacy walletAuth(maxAgeSeconds) call signature
+  const opts: WalletAuthOptions = typeof options === 'number' ? { maxAgeSeconds: options } : options
+  const maxAgeSeconds = opts.maxAgeSeconds ?? DEFAULT_MAX_AGE_SECONDS
+  const allowApiKey = opts.allowApiKey ?? false
+
   return async (c, next) => {
     const address = c.req.query('address')
 
     // No address supplied — pass through; route returns 400 for missing address
     if (!address) return next()
+
+    // API key bypass: if enabled and a valid key is presented, skip wallet auth
+    if (allowApiKey) {
+      const configuredKey = process.env['API_KEY']
+      if (configuredKey && c.req.header('x-api-key') === configuredKey) {
+        return next()
+      }
+    }
 
     const sig = c.req.header('x-wallet-signature')
     const tsRaw = c.req.header('x-wallet-timestamp')
