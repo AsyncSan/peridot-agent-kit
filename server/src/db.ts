@@ -44,6 +44,8 @@ export const tables = isMainnet
       userPortfolioApySnapshots: 'user_portfolio_apy_snapshots_mainnet',
       verifiedTransactions: 'verified_transactions_mainnet',
       leaderboardUsers: 'leaderboard_users_mainnet',
+      accountHealth: 'account_health_mainnet',
+      borrowerIndex: 'borrower_index_mainnet',
     }
   : {
       apyLatest: 'apy_latest',
@@ -52,4 +54,6 @@ export const tables = isMainnet
       userPortfolioApySnapshots: 'user_portfolio_apy_snapshots',
       verifiedTransactions: 'verified_transactions',
       leaderboardUsers: 'leaderboard_users',
+      accountHealth: 'account_health_testnet',
+      borrowerIndex: 'borrower_index_testnet',
     }

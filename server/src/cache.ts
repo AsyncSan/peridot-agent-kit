@@ -17,6 +17,7 @@ export class Cache<T> {
   get(key: string): T | undefined {
     const entry = this.store.get(key)
     if (!entry) return undefined
+    if (entry.inflight) return undefined  // never evict in-flight entries
     if (Date.now() > entry.expiresAt) {
       this.store.delete(key)
       return undefined
@@ -39,12 +40,17 @@ export class Cache<T> {
     const existing = this.store.get(key)
     if (existing?.inflight) return existing.inflight
 
-    const promise = fetcher().then((data) => {
-      this.set(key, data)
-      const entry = this.store.get(key)
-      if (entry) delete entry.inflight
-      return data
-    })
+    const promise = fetcher()
+      .then((data) => {
+        this.set(key, data)
+        const entry = this.store.get(key)
+        if (entry) delete entry.inflight
+        return data
+      })
+      .catch((err: unknown) => {
+        this.store.delete(key)
+        throw err
+      })
 
     this.store.set(key, { data: undefined as unknown as T, expiresAt: 0, inflight: promise })
     return promise

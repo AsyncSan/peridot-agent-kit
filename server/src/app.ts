@@ -11,6 +11,7 @@ import { apyRoute } from './routes/apy'
 import { portfolioRoute } from './routes/portfolio'
 import { leaderboardRoute } from './routes/leaderboard'
 import { metricsRoute } from './routes/metrics'
+import { liquidationsRoute } from './routes/liquidations'
 
 export const app = new Hono()
 
@@ -31,6 +32,7 @@ app.route('/api/apy', apyRoute)           // /api/apy
 app.route('/api/leaderboard', leaderboardRoute) // /api/leaderboard
 app.use('/api/user/*', walletAuth())
 app.route('/api/user', portfolioRoute)    // /api/user/portfolio-data
+app.route('/api/liquidations', liquidationsRoute)  // /api/liquidations/at-risk
 
 app.onError((err, c) => {
   // c.error is set automatically by Hono — jsonLogger reads it for the log line
