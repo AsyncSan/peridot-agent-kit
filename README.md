@@ -6,6 +6,64 @@ The Peridot Agent Kit is a TypeScript SDK that wraps Peridot's lending protocol 
 
 ---
 
+## Get started in 3 steps
+
+### Step 1 — Install
+
+```bash
+npm install @peridot-agent/agent-kit
+```
+
+### Step 2 — Pick your setup
+
+**Use with Claude Desktop or Cursor (no code needed)**
+
+Add this to `~/.claude/claude_desktop_config.json` (or your Cursor MCP config):
+
+```json
+{
+  "mcpServers": {
+    "peridot": {
+      "command": "npx",
+      "args": ["-y", "-p", "@peridot-agent/agent-kit", "peridot-mcp"],
+      "env": {
+        "BICONOMY_API_KEY": "your-key-here"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop. Ask it *"What can I lend on Peridot?"* — it just works.
+
+**Use in your own agent (LangChain)**
+
+```typescript
+import { createLangChainTools } from "@peridot-agent/agent-kit/langchain"
+
+const tools = createLangChainTools({
+  biconomyApiKey: process.env.BICONOMY_API_KEY,
+})
+// pass tools to your agent as usual
+```
+
+**Use in your own agent (Vercel AI SDK)**
+
+```typescript
+import { createVercelAITools } from "@peridot-agent/agent-kit/vercel-ai"
+
+const tools = createVercelAITools({
+  biconomyApiKey: process.env.BICONOMY_API_KEY,
+})
+// pass tools to generateText / streamText
+```
+
+### Step 3 — Get a Biconomy API key
+
+Cross-chain tools (Arbitrum, Base, Ethereum, Polygon, Optimism, Avalanche) require a [Biconomy MEE API key](https://dashboard.biconomy.io). Same-chain tools on BSC, Monad, and Somnia work without one.
+
+---
+
 ## Table of Contents
 
 1. [Why this exists](#-why-this-exists)
