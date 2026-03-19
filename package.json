@@ -1,5 +1,5 @@
 {
-  "name": "@peridot/agent-kit",
+  "name": "@peridot-agent/agent-kit",
   "version": "0.2.0",
   "description": "AI Agent toolkit for Peridot DeFi money markets — read, simulate, and build transaction intents for lending, borrowing, and cross-chain operations",
   "type": "module",

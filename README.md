@@ -45,9 +45,9 @@ This kit bridges that gap. Every tool handles the math and encoding; the agent h
 
 | Framework | Import path | Status |
 |---|---|---|
-| MCP (Claude Desktop, Cursor, any MCP client) | `@peridot/agent-kit/mcp` | ✅ |
-| LangChain | `@peridot/agent-kit/langchain` | ✅ |
-| Vercel AI SDK | `@peridot/agent-kit/vercel-ai` | ✅ |
+| MCP (Claude Desktop, Cursor, any MCP client) | `@peridot-agent/agent-kit/mcp` | ✅ |
+| LangChain | `@peridot-agent/agent-kit/langchain` | ✅ |
+| Vercel AI SDK | `@peridot-agent/agent-kit/vercel-ai` | ✅ |
 | ElizaOS | — | Coming soon |
 
 ---
@@ -55,9 +55,9 @@ This kit bridges that gap. Every tool handles the math and encoding; the agent h
 ## 📦 Installation
 
 ```bash
-npm install @peridot/agent-kit
+npm install @peridot-agent/agent-kit
 # or
-pnpm add @peridot/agent-kit
+pnpm add @peridot-agent/agent-kit
 ```
 
 Install the peer dependency for your framework:
@@ -92,7 +92,7 @@ Add this to `~/.claude/claude_desktop_config.json`:
   "mcpServers": {
     "peridot": {
       "command": "npx",
-      "args": ["-y", "-p", "@peridot/agent-kit", "peridot-mcp"],
+      "args": ["-y", "-p", "@peridot-agent/agent-kit", "peridot-mcp"],
       "env": {
         "BICONOMY_API_KEY": "your-key-here"
       }
@@ -251,7 +251,7 @@ Rules you must follow:
 ```typescript
 import { ChatOpenAI } from "@langchain/openai"
 import { createReactAgent } from "langchain/agents"
-import { createLangChainTools } from "@peridot/agent-kit/langchain"
+import { createLangChainTools } from "@peridot-agent/agent-kit/langchain"
 
 const tools = createLangChainTools({
   biconomyApiKey: process.env.BICONOMY_API_KEY,
@@ -282,7 +282,7 @@ const readOnlyTools = createLangChainTools({}, { categories: ['lending'] })
 ```typescript
 import { generateText } from "ai"
 import { openai } from "@ai-sdk/openai"
-import { createVercelAITools } from "@peridot/agent-kit/vercel-ai"
+import { createVercelAITools } from "@peridot-agent/agent-kit/vercel-ai"
 
 const { text } = await generateText({
   model: openai("gpt-4o"),
@@ -298,7 +298,7 @@ const { text } = await generateText({
 Import any tool function directly for use in your own code:
 
 ```typescript
-import { listMarkets, getMarketRates, simulateBorrow } from "@peridot/agent-kit"
+import { listMarkets, getMarketRates, simulateBorrow } from "@peridot-agent/agent-kit"
 
 const { markets } = await listMarkets({}, { apiBaseUrl: "https://app.peridot.finance" })
 const rates = await getMarketRates({ asset: "usdc", chainId: 56 }, config)

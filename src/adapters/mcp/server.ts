@@ -22,7 +22,7 @@
  *   "mcpServers": {
  *     "peridot": {
  *       "command": "npx",
- *       "args": ["@peridot/agent-kit/mcp"],
+ *       "args": ["@peridot-agent/agent-kit/mcp"],
  *       "env": { "BICONOMY_API_KEY": "your-key-here" }
  *     }
  *   }

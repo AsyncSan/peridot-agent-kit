@@ -5,7 +5,7 @@
  * ```typescript
  * import { ChatOpenAI } from "@langchain/openai"
  * import { createReactAgent } from "langchain/agents"
- * import { createLangChainTools } from "@peridot/agent-kit/langchain"
+ * import { createLangChainTools } from "@peridot-agent/agent-kit/langchain"
  *
  * const tools = createLangChainTools({ network: "mainnet" })
  * const agent = await createReactAgent({ llm: new ChatOpenAI(), tools })

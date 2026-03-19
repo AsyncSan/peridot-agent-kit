@@ -1,10 +1,10 @@
 /**
- * @peridot/agent-kit — main entry point
+ * @peridot-agent/agent-kit — main entry point
  *
  * For framework-specific adapters:
- *   import { createLangChainTools } from "@peridot/agent-kit/langchain"
- *   import { createVercelAITools }  from "@peridot/agent-kit/vercel-ai"
- *   // MCP server: npx peridot-mcp (or import "@peridot/agent-kit/mcp")
+ *   import { createLangChainTools } from "@peridot-agent/agent-kit/langchain"
+ *   import { createVercelAITools }  from "@peridot-agent/agent-kit/vercel-ai"
+ *   // MCP server: npx peridot-mcp (or import "@peridot-agent/agent-kit/mcp")
  */
 
 // Types

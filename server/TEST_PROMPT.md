@@ -6,18 +6,18 @@
 Monad (chain 143), and Stellar (chain 56456). The protocol lets users supply and borrow
 crypto assets across chains via a unified lending hub.
 
-**Product:** `@peridot/agent-kit` is an open-source TypeScript SDK that lets AI agents
+**Product:** `@peridot-agent/agent-kit` is an open-source TypeScript SDK that lets AI agents
 (LLM applications) interact with Peridot's lending markets. It performs read queries,
 simulates transactions, and builds signed transaction intents — always returning calldata
 for the user to sign, never holding private keys.
 
 **This repo:** `peridot-mcp-server` is a standalone REST API server (Bun + Hono,
-TypeScript) that `@peridot/agent-kit` calls to fetch live market data from Peridot's
+TypeScript) that `@peridot-agent/agent-kit` calls to fetch live market data from Peridot's
 PostgreSQL database. It is the data backbone behind every AI agent action. Without it,
 agents cannot see market rates, APY figures, or user portfolio positions.
 
 **Intermediate goal:** Make `peridot-mcp-server` production-ready so it can be deployed
-to DigitalOcean and serve `@peridot/agent-kit` consumers in the wild. The six changes
+to DigitalOcean and serve `@peridot-agent/agent-kit` consumers in the wild. The six changes
 listed below are all in-flight. Your job is to write the tests for them.
 
 ---

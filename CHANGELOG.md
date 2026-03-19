@@ -1,4 +1,4 @@
-# @peridot/agent-kit
+# @peridot-agent/agent-kit
 
 ## 0.2.0
 

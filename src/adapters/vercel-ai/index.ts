@@ -5,7 +5,7 @@
  * ```typescript
  * import { generateText } from "ai"
  * import { openai } from "@ai-sdk/openai"
- * import { createVercelAITools } from "@peridot/agent-kit/vercel-ai"
+ * import { createVercelAITools } from "@peridot-agent/agent-kit/vercel-ai"
  *
  * const tools = createVercelAITools({ network: "mainnet" })
  *

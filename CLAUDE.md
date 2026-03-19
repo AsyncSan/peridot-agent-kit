@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-**Peridot Agent Kit** (`@peridot/agent-kit`) — A TypeScript npm package that enables AI agents to safely interact with Peridot's DeFi money markets. Published as an npm package; consumed by LLM applications.
+**Peridot Agent Kit** (`@peridot-agent/agent-kit`) — A TypeScript npm package that enables AI agents to safely interact with Peridot's DeFi money markets. Published as an npm package; consumed by LLM applications.
 
 **Core philosophy: "AI Proposes, User Disposes"**
 - Agents never hold private keys or execute transactions
