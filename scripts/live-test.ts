@@ -109,14 +109,13 @@ async function rawChecks() {
     const body = await res.json() as {
       ok: boolean
       stale: boolean
-      thresholdSecs: number
-      metrics: { ageSeconds: number | null; fresh: boolean; updatedAt: string | null }
-      apy: { ageSeconds: number | null; fresh: boolean; updatedAt: string | null }
+      metrics: { ageSeconds: number | null; fresh: boolean; updatedAt: string | null; thresholdSecs: number }
+      apy: { ageSeconds: number | null; fresh: boolean; updatedAt: string | null; thresholdSecs: number }
     }
     if (!body.ok) return { ok: false, detail: `ok=false` }
     const metricsAge = body.metrics.ageSeconds !== null ? `${body.metrics.ageSeconds}s` : 'null (empty)'
     const apyAge = body.apy.ageSeconds !== null ? `${body.apy.ageSeconds}s` : 'null (empty)'
-    const detail = `metrics=${metricsAge}, apy=${apyAge} (threshold=${body.thresholdSecs}s)`
+    const detail = `metrics=${metricsAge} (max ${body.metrics.thresholdSecs}s), apy=${apyAge} (max ${body.apy.thresholdSecs}s)`
     if (body.stale) return { ok: true, detail: `STALE — ${detail}`, warn: true }
     return { ok: true, detail }
   })

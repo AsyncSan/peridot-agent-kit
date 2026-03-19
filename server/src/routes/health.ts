@@ -3,8 +3,14 @@ import { sql, tables } from '../db'
 
 const app = new Hono()
 
-/** Stale threshold in seconds — warn when ingest hasn't run within this window. */
-const STALE_THRESHOLD_SECS = 300
+/**
+ * Stale thresholds per table.
+ * - assetMetrics: on-chain RPC scrape, typically every 10–20 min → 30 min threshold
+ * - apy: computed from on-chain rates, similar cadence → 30 min threshold
+ * Override via env: STALE_METRICS_SECS / STALE_APY_SECS
+ */
+const STALE_METRICS_SECS = Number(process.env['STALE_METRICS_SECS'] ?? '1800')
+const STALE_APY_SECS     = Number(process.env['STALE_APY_SECS']     ?? '1800')
 
 /**
  * GET /health
@@ -56,22 +62,23 @@ app.get('/data', async (c) => {
     const isStale =
       metricsAgeSecs === null ||
       apyAgeSecs === null ||
-      metricsAgeSecs > STALE_THRESHOLD_SECS ||
-      apyAgeSecs > STALE_THRESHOLD_SECS
+      metricsAgeSecs > STALE_METRICS_SECS ||
+      apyAgeSecs > STALE_APY_SECS
 
     return c.json({
       ok: true,
       stale: isStale,
-      thresholdSecs: STALE_THRESHOLD_SECS,
       metrics: {
         updatedAt: metricsRow.updated_at?.toISOString() ?? null,
         ageSeconds: metricsAgeSecs,
-        fresh: metricsAgeSecs !== null && metricsAgeSecs <= STALE_THRESHOLD_SECS,
+        thresholdSecs: STALE_METRICS_SECS,
+        fresh: metricsAgeSecs !== null && metricsAgeSecs <= STALE_METRICS_SECS,
       },
       apy: {
         updatedAt: apyRow.ts?.toISOString() ?? null,
         ageSeconds: apyAgeSecs,
-        fresh: apyAgeSecs !== null && apyAgeSecs <= STALE_THRESHOLD_SECS,
+        thresholdSecs: STALE_APY_SECS,
+        fresh: apyAgeSecs !== null && apyAgeSecs <= STALE_APY_SECS,
       },
     })
   } catch (err) {

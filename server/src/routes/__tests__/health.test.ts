@@ -112,9 +112,9 @@ describe('GET /health/data', () => {
     expect(body.metrics.ageSeconds).toBeGreaterThan(0)
   })
 
-  it('returns stale: true when metrics data is old', async () => {
+  it('returns stale: true when metrics data is old (> 30 min)', async () => {
     const now = new Date()
-    mockDataQuery(new Date(now.getTime() - 400_000), new Date(now.getTime() - 60_000))
+    mockDataQuery(new Date(now.getTime() - 2_000_000), new Date(now.getTime() - 60_000))
     const res = await makeApp().request('/health/data')
     expect(res.status).toBe(200)
     const body = await res.json()
@@ -123,9 +123,9 @@ describe('GET /health/data', () => {
     expect(body.apy.fresh).toBe(true)
   })
 
-  it('returns stale: true when APY data is old', async () => {
+  it('returns stale: true when APY data is old (> 30 min)', async () => {
     const now = new Date()
-    mockDataQuery(new Date(now.getTime() - 60_000), new Date(now.getTime() - 600_000))
+    mockDataQuery(new Date(now.getTime() - 60_000), new Date(now.getTime() - 2_000_000))
     const res = await makeApp().request('/health/data')
     expect(res.status).toBe(200)
     const body = await res.json()
