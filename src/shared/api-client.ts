@@ -7,6 +7,7 @@ const BICONOMY_COMPOSE_TIMEOUT_MS = 30_000
 import type {
   BiconomyResponse,
   ComposeRequest,
+  LiquidatablePositions,
   PeridotConfig,
   TransactionStatus,
 } from './types'
@@ -162,6 +163,27 @@ export class PeridotApiClient {
     if (!res.ok) throw new Error(`Failed to fetch leaderboard: ${res.status} ${res.statusText}`)
     const json = (await res.json()) as { ok: boolean; data: RawLeaderboardResponse; error?: string }
     if (!json.ok) throw new Error(`Leaderboard API error: ${json.error ?? 'unknown'}`)
+    return json.data
+  }
+
+  /**
+   * Fetches accounts that are currently underwater (shortfall_usd > 0) and
+   * eligible for liquidation. Data is sourced from the account health scanner.
+   */
+  async getLiquidatablePositions(options?: {
+    chainId?: number
+    minShortfall?: number
+    limit?: number
+  }): Promise<LiquidatablePositions> {
+    const params = new URLSearchParams()
+    if (options?.chainId !== undefined) params.set('chainId', String(options.chainId))
+    if (options?.minShortfall !== undefined) params.set('minShortfall', String(options.minShortfall))
+    if (options?.limit !== undefined) params.set('limit', String(options.limit))
+    const query = params.toString() ? `?${params.toString()}` : ''
+    const res = await fetch(`${this.baseUrl}/api/liquidations/at-risk${query}`, { signal: AbortSignal.timeout(PLATFORM_TIMEOUT_MS) })
+    if (!res.ok) throw new Error(`Failed to fetch liquidatable positions: ${res.status} ${res.statusText}`)
+    const json = (await res.json()) as { ok: boolean; data: LiquidatablePositions; error?: string }
+    if (!json.ok) throw new Error(`Liquidations API error: ${json.error ?? 'unknown'}`)
     return json.data
   }
 

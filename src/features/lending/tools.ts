@@ -31,6 +31,8 @@ import { crossChainBorrowSchema, buildCrossChainBorrowIntent } from './intents/c
 import { crossChainRepaySchema, buildCrossChainRepayIntent } from './intents/cross-chain/repay'
 import { crossChainWithdrawSchema, buildCrossChainWithdrawIntent } from './intents/cross-chain/withdraw'
 import { checkTransactionStatusSchema, checkTransactionStatus } from './status/check-transaction'
+import { getLiquidatablePositionsSchema, getLiquidatablePositions } from './read/get-liquidatable-positions'
+import { hubLiquidateSchema, buildHubLiquidateIntent } from './intents/hub/liquidate'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export const lendingTools: ToolDefinition<any, any>[] = [
@@ -148,6 +150,22 @@ export const lendingTools: ToolDefinition<any, any>[] = [
     category: 'lending',
   },
 
+  {
+    name: 'get_liquidatable_positions',
+    description:
+      'Fetch a list of borrowers currently underwater (shortfallUsd > 0) and eligible for liquidation ' +
+      'on Peridot hub chains. Data is sourced from the on-chain health scanner that runs every minute. ' +
+      'Each result contains: address, chainId, shortfallUsd (how far underwater in USD), ' +
+      'liquidityUsd (0 when underwater), and checkedAt (when last scanned). ' +
+      'Results are ordered by shortfallUsd descending — the most undercollateralised positions first. ' +
+      'Use minShortfall to filter out dust positions (e.g. minShortfall=100 for $100+ shortfall). ' +
+      'Always call get_account_liquidity to re-confirm a position is still underwater immediately ' +
+      'before building a liquidation intent — health can change between scanner runs.',
+    inputSchema: getLiquidatablePositionsSchema,
+    execute: getLiquidatablePositions,
+    category: 'liquidations',
+  },
+
   // ── Hub-chain intents (user on BSC / Monad / Somnia) ─────────────────────
   // Hub chains host Peridot lending pools natively.
   // Hub chainIds: BSC (56), Monad (143), Somnia (1868).
@@ -230,6 +248,25 @@ export const lendingTools: ToolDefinition<any, any>[] = [
     inputSchema: hubDisableCollateralSchema,
     execute: buildHubDisableCollateralIntent,
     category: 'lending',
+  },
+
+  {
+    name: 'build_liquidation_intent',
+    description:
+      'Build calldata to liquidate an underwater Peridot borrower on a hub chain. ' +
+      'The liquidator repays part of the borrower\'s debt (up to 50% per call — the protocol close factor) ' +
+      'and in return seizes an equivalent value of the borrower\'s collateral plus the liquidation bonus. ' +
+      'Seized collateral is received as pToken shares — call redeem on the collateral pToken afterward ' +
+      'to convert pTokens back to the underlying asset. ' +
+      'REQUIRED BEFORE CALLING THIS: ' +
+      '1. Call get_liquidatable_positions or get_account_liquidity to confirm shortfallUsd > 0. ' +
+      '2. Verify the borrower has borrowed repayAsset and supplied collateralAsset as collateral. ' +
+      '3. Never build a liquidation intent without confirming the position is still underwater. ' +
+      'Returns ordered calls: approve underlying → liquidateBorrow. ' +
+      'Only works on hub chains (BSC 56, Monad 143, Somnia 1868).',
+    inputSchema: hubLiquidateSchema,
+    execute: buildHubLiquidateIntent,
+    category: 'liquidations',
   },
 
   // ── Cross-chain intents (user on a spoke chain) ───────────────────────────

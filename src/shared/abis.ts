@@ -11,6 +11,7 @@ export const PTOKEN_ABI = parseAbi([
   'function borrow(uint256 borrowAmount) returns (uint256)',
   'function repayBorrow(uint256 repayAmount) returns (uint256)',
   'function repayBorrowBehalf(address borrower, uint256 repayAmount) returns (uint256)',
+  'function liquidateBorrow(address borrower, uint256 repayAmount, address pTokenCollateral) returns (uint256)',
   'function balanceOf(address owner) view returns (uint256)',
   'function borrowBalanceStored(address account) view returns (uint256)',
   'function supplyRatePerBlock() view returns (uint256)',

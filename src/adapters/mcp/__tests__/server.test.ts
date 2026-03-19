@@ -97,14 +97,38 @@ const MOCK_LEADERBOARD = {
   },
 }
 
+const MOCK_LIQUIDATABLE = {
+  ok: true,
+  data: {
+    accounts: [
+      {
+        address: '0x1234567890123456789012345678901234567890',
+        chainId: 56,
+        liquidityUsd: 0,
+        shortfallUsd: 1500.5,
+        checkedAt: '2024-01-01T00:01:00Z',
+      },
+      {
+        address: '0xabcdefabcdefabcdefabcdefabcdefabcdefabcd',
+        chainId: 56,
+        liquidityUsd: 0,
+        shortfallUsd: 250.0,
+        checkedAt: '2024-01-01T00:01:00Z',
+      },
+    ],
+    count: 2,
+  },
+}
+
 function mockFetch() {
   vi.stubGlobal(
     'fetch',
     vi.fn().mockImplementation((url: string) => {
-      if (url.includes('/api/apy'))              return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_APY) })
-      if (url.includes('/api/markets/metrics'))  return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_METRICS) })
-      if (url.includes('/api/user/portfolio'))   return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_PORTFOLIO) })
-      if (url.includes('/api/leaderboard'))      return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEADERBOARD) })
+      if (url.includes('/api/apy'))                   return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_APY) })
+      if (url.includes('/api/markets/metrics'))       return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_METRICS) })
+      if (url.includes('/api/user/portfolio'))        return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_PORTFOLIO) })
+      if (url.includes('/api/leaderboard'))           return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LEADERBOARD) })
+      if (url.includes('/api/liquidations/at-risk'))  return Promise.resolve({ ok: true, json: () => Promise.resolve(MOCK_LIQUIDATABLE) })
       return Promise.reject(new Error(`Unexpected fetch URL: ${url}`))
     }),
   )
@@ -122,15 +146,18 @@ describe('tool registry', () => {
     'list_markets',
     'get_leaderboard',
     'get_market_rates',
+    'get_portfolio',
     'get_user_position',
     'simulate_borrow',
     'get_account_liquidity',
+    'get_liquidatable_positions',
     'build_hub_supply_intent',
     'build_hub_borrow_intent',
     'build_hub_repay_intent',
     'build_hub_withdraw_intent',
     'build_enable_collateral_intent',
     'build_disable_collateral_intent',
+    'build_liquidation_intent',
     'build_cross_chain_supply_intent',
     'build_cross_chain_borrow_intent',
     'build_cross_chain_repay_intent',
@@ -177,7 +204,8 @@ describe('tool registry', () => {
 
   it('lending tools are categorised correctly', () => {
     const lendingNames = [
-      'list_markets', 'get_leaderboard', 'get_market_rates', 'get_user_position', 'simulate_borrow', 'get_account_liquidity',
+      'list_markets', 'get_leaderboard', 'get_market_rates', 'get_portfolio', 'get_user_position',
+      'simulate_borrow', 'get_account_liquidity',
       'build_hub_supply_intent', 'build_hub_borrow_intent', 'build_hub_repay_intent',
       'build_hub_withdraw_intent', 'build_enable_collateral_intent', 'build_disable_collateral_intent',
       'build_cross_chain_supply_intent', 'build_cross_chain_borrow_intent',
@@ -186,6 +214,11 @@ describe('tool registry', () => {
     for (const name of lendingNames) {
       expect(findTool(name).category).toBe('lending')
     }
+  })
+
+  it('liquidation tools are categorised as "liquidations"', () => {
+    expect(findTool('get_liquidatable_positions').category).toBe('liquidations')
+    expect(findTool('build_liquidation_intent').category).toBe('liquidations')
   })
 
   it('check_transaction_status is categorised as "status"', () => {
@@ -262,6 +295,22 @@ describe('tool descriptions — safety preconditions', () => {
   it('get_user_position has ALWAYS call-before directive for borrow/withdraw/repay', () => {
     const desc = findTool('get_user_position').description
     expect(desc).toContain('ALWAYS')
+  })
+
+  it('build_liquidation_intent requires confirming shortfall > 0 before building', () => {
+    const desc = findTool('build_liquidation_intent').description
+    expect(desc).toContain('shortfallUsd')
+    expect(desc).toContain('get_account_liquidity')
+  })
+
+  it('build_liquidation_intent names the REQUIRED pre-checks', () => {
+    const desc = findTool('build_liquidation_intent').description
+    expect(desc).toContain('REQUIRED')
+  })
+
+  it('get_liquidatable_positions directs agents to re-confirm with get_account_liquidity', () => {
+    const desc = findTool('get_liquidatable_positions').description
+    expect(desc).toContain('get_account_liquidity')
   })
 })
 
@@ -528,6 +577,165 @@ describe('MCP handler — hub intent tools (no network calls)', () => {
     })
     expect(response.isError).toBe(true)
     expect(response.content[0]!.text).toContain('Error:')
+  })
+})
+
+describe('MCP handler — get_liquidatable_positions', () => {
+  it('returns accounts and count', async () => {
+    const tool = findTool('get_liquidatable_positions')
+    const response = await mcpExecute(tool, {})
+    expect(response.isError).toBe(false)
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(Array.isArray(parsed.accounts)).toBe(true)
+    expect(typeof parsed.count).toBe('number')
+    expect(parsed.count).toBe(2)
+  })
+
+  it('each account has all expected fields', async () => {
+    const tool = findTool('get_liquidatable_positions')
+    const response = await mcpExecute(tool, {})
+    const parsed = JSON.parse(response.content[0]!.text)
+    const acct = parsed.accounts[0]
+    expect(typeof acct.address).toBe('string')
+    expect(typeof acct.chainId).toBe('number')
+    expect(typeof acct.shortfallUsd).toBe('number')
+    expect(typeof acct.liquidityUsd).toBe('number')
+    expect(typeof acct.checkedAt).toBe('string')
+  })
+
+  it('accounts are ordered by shortfallUsd descending', async () => {
+    const tool = findTool('get_liquidatable_positions')
+    const response = await mcpExecute(tool, {})
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(parsed.accounts[0]!.shortfallUsd).toBeGreaterThanOrEqual(parsed.accounts[1]!.shortfallUsd)
+  })
+
+  it('passes chainId filter to the API URL', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve(MOCK_LIQUIDATABLE) })
+    vi.stubGlobal('fetch', fetchMock)
+    const tool = findTool('get_liquidatable_positions')
+    await tool.execute({ chainId: 56 }, config)
+    const url = (fetchMock.mock.calls[0] as [string])[0]
+    expect(url).toContain('chainId=56')
+  })
+
+  it('accepts optional minShortfall and limit filters without error', async () => {
+    const tool = findTool('get_liquidatable_positions')
+    const response = await mcpExecute(tool, { minShortfall: 100, limit: 10 })
+    expect(response.isError).toBe(false)
+  })
+
+  it('returns isError=true when the API fails', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('Network error')))
+    const tool = findTool('get_liquidatable_positions')
+    const response = await mcpExecute(tool, {})
+    expect(response.isError).toBe(true)
+    expect(response.content[0]!.text).toContain('Error:')
+  })
+})
+
+describe('MCP handler — build_liquidation_intent', () => {
+  it('returns a hub intent with 2 calls (approve + liquidateBorrow)', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'USDC',
+      repayAmount: '500',
+      collateralAsset: 'WETH',
+      chainId: 56,
+    })
+    expect(response.isError).toBe(false)
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(parsed.type).toBe('hub')
+    expect(parsed.chainId).toBe(56)
+    expect(parsed.calls).toHaveLength(2)
+  })
+
+  it('first call is the ERC-20 approve', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'USDC',
+      repayAmount: '500',
+      collateralAsset: 'WETH',
+      chainId: 56,
+    })
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(parsed.calls[0]!.description).toMatch(/approve/i)
+  })
+
+  it('second call is the liquidateBorrow', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'USDC',
+      repayAmount: '500',
+      collateralAsset: 'WETH',
+      chainId: 56,
+    })
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(parsed.calls[1]!.description).toMatch(/liquidate/i)
+  })
+
+  it('includes a warning about confirming position is still underwater', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'USDC',
+      repayAmount: '500',
+      collateralAsset: 'WETH',
+      chainId: 56,
+    })
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(typeof parsed.warning).toBe('string')
+    expect(parsed.warning).toMatch(/underwater/i)
+  })
+
+  it('accepts "max" repayAmount', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'USDC',
+      repayAmount: 'max',
+      collateralAsset: 'WETH',
+      chainId: 56,
+    })
+    expect(response.isError).toBe(false)
+    const parsed = JSON.parse(response.content[0]!.text)
+    expect(parsed.type).toBe('hub')
+    expect(parsed.calls[0]!.description).toMatch(/max/i)
+  })
+
+  it('returns isError=true for unknown repay asset', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'FAKECOIN',
+      repayAmount: '100',
+      collateralAsset: 'WETH',
+      chainId: 56,
+    })
+    expect(response.isError).toBe(true)
+    expect(response.content[0]!.text).toContain('Error:')
+  })
+
+  it('returns isError=true for spoke chain (non-hub)', async () => {
+    const tool = findTool('build_liquidation_intent')
+    const response = await mcpExecute(tool, {
+      liquidatorAddress: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+      borrowerAddress: '0x1234567890123456789012345678901234567890',
+      repayAsset: 'USDC',
+      repayAmount: '500',
+      collateralAsset: 'WETH',
+      chainId: 42161,  // Arbitrum — spoke chain, must be rejected
+    })
+    expect(response.isError).toBe(true)
   })
 })
 

@@ -163,6 +163,22 @@ export interface AccountLiquidity {
   isHealthy: boolean
 }
 
+export interface LiquidatableAccount {
+  address: string
+  chainId: number
+  /** Remaining borrow capacity (0 when underwater). */
+  liquidityUsd: number
+  /** How far underwater in USD — positive means liquidatable. */
+  shortfallUsd: number
+  /** When this account was last health-checked by the scanner. */
+  checkedAt: string
+}
+
+export interface LiquidatablePositions {
+  accounts: LiquidatableAccount[]
+  count: number
+}
+
 // ---------------------------------------------------------------------------
 // Intent outputs
 // ---------------------------------------------------------------------------
