@@ -19,8 +19,6 @@ import { PeridotApiClient } from '../src/shared/api-client'
 import { listMarkets } from '../src/features/lending/read/list-markets'
 import { getMarketRates } from '../src/features/lending/read/get-market-rates'
 import { getLiquidatablePositions } from '../src/features/lending/read/get-liquidatable-positions'
-import { getUserPosition } from '../src/features/lending/read/get-user-position'
-import { getPortfolio } from '../src/features/lending/read/get-portfolio'
 import type { PeridotConfig } from '../src/shared/types'
 
 // ── Config ────────────────────────────────────────────────────────────────────
@@ -102,7 +100,7 @@ async function rawChecks() {
     const body = await res.json() as Record<string, unknown>
     // Server returns { ok: true, ts: <epoch> }
     if (body['ok'] !== true) return { ok: false, detail: `Unexpected body: ${JSON.stringify(body)}` }
-    return { ok: true, detail: `ok=true, ts=${body['ts']}` }
+    return { ok: true, detail: `ok=true, ts=${String(body['ts'])}` }
   })
 
   await check('GET /api/markets/metrics — non-empty', async () => {
@@ -149,7 +147,7 @@ async function rawChecks() {
     if (!res.ok) return { ok: false, detail: `HTTP ${res.status} ${res.statusText}` }
     const body = await res.json() as { ok: boolean; data: { accounts: unknown[]; count: number } }
     if (!body.ok) return { ok: false, detail: 'ok=false' }
-    const { accounts, count } = body.data
+    const { count } = body.data
     if (count === 0) return { ok: true, detail: 'No liquidatable positions — scanner may not have run or no underwater accounts', warn: true }
     return { ok: true, detail: `${count} liquidatable accounts` }
   })
