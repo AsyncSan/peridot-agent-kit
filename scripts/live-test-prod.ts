@@ -83,7 +83,7 @@ function section(title: string) {
   console.log(`\n${BOLD}${title}${RESET}`)
 }
 
-async function get(path: string, opts: { timeout?: number; headers?: Record<string, string>; redirect?: RequestRedirect } = {}): Promise<Response> {
+async function get(path: string, opts: { timeout?: number; headers?: Record<string, string>; redirect?: 'follow' | 'error' | 'manual' } = {}): Promise<Response> {
   const headers: Record<string, string> = { ...opts.headers }
   if (API_KEY) headers['x-api-key'] = API_KEY
   return fetch(`${PROD_URL}${path}`, {

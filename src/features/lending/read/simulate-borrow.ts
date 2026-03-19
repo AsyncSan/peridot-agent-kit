@@ -2,6 +2,7 @@ import Decimal from 'decimal.js'
 import { z } from 'zod'
 import { PeridotApiClient } from '../../../shared/api-client'
 import { BSC_MAINNET_CHAIN_ID, isHubChain } from '../../../shared/constants'
+import { readOnChainPosition } from '../../../shared/on-chain-position'
 import type { PeridotConfig, SimulateBorrowResult } from '../../../shared/types'
 import { evmAddress, tokenAmount } from '../../../shared/zod-utils'
 
@@ -39,12 +40,12 @@ export async function simulateBorrow(
   input: SimulateBorrowInput,
   config: PeridotConfig,
 ): Promise<SimulateBorrowResult> {
-  const client = new PeridotApiClient(config)
+  const apiClient = new PeridotApiClient(config)
 
-  // Fetch position and market price in parallel
-  const [portfolioData, metricsData] = await Promise.all([
-    client.getUserPortfolio(input.address),
-    client.getMarketMetrics(),
+  // Read on-chain position and market prices in parallel — both public, no auth needed
+  const [position, metricsData] = await Promise.all([
+    readOnChainPosition(input.address, input.chainId, config),
+    apiClient.getMarketMetrics(),
   ])
 
   const assetUpper = input.asset.toUpperCase()
@@ -62,15 +63,15 @@ export async function simulateBorrow(
 
   const borrowAmount = new Decimal(input.amount)
   const borrowAmountUsd = borrowAmount.mul(metric.priceUsd).toNumber()
-  const { totalSupplied, totalBorrowed } = portfolioData.portfolio
+
+  const { totalSuppliedUsd, totalBorrowedUsd } = position
 
   const currentHF =
-    totalBorrowed > 0
-      ? new Decimal(totalSupplied).div(totalBorrowed).toNumber()
+    totalBorrowedUsd > 0
+      ? new Decimal(totalSuppliedUsd).div(totalBorrowedUsd).toNumber()
       : null
-  const projectedBorrowedUsd = new Decimal(totalBorrowed).add(borrowAmountUsd)
 
-  if (totalSupplied === 0) {
+  if (totalSuppliedUsd === 0) {
     return {
       currentHealthFactor: null,
       projectedHealthFactor: null,
@@ -79,18 +80,18 @@ export async function simulateBorrow(
       riskLevel: 'liquidatable',
       maxSafeBorrowUsd: 0,
       warning:
-        'Portfolio shows no supplied collateral (data is sourced from indexed DB snapshots and may ' +
-        'not reflect activity from the last few minutes). If you recently supplied assets, wait for ' +
-        'the next snapshot update. Otherwise, supply assets and enable them as collateral before borrowing.',
+        'No supplied collateral found on-chain for this address. ' +
+        'Supply assets and enable them as collateral before borrowing.',
     }
   }
 
-  const projectedHF = new Decimal(totalSupplied).div(projectedBorrowedUsd).toNumber()
+  const projectedBorrowedUsd = new Decimal(totalBorrowedUsd).add(borrowAmountUsd)
+  const projectedHF = new Decimal(totalSuppliedUsd).div(projectedBorrowedUsd).toNumber()
 
   // Max safe borrow keeps projected HF at the "safe" threshold (2.0)
   const maxSafeBorrowUsd = Decimal.max(
     0,
-    new Decimal(totalSupplied).div(RISK_THRESHOLDS.safe).sub(totalBorrowed),
+    new Decimal(totalSuppliedUsd).div(RISK_THRESHOLDS.safe).sub(totalBorrowedUsd),
   ).toNumber()
 
   const riskLevel = classifyRisk(projectedHF)

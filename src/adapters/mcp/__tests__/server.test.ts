@@ -10,6 +10,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { lendingTools } from '../../../features/lending/tools'
 import type { PeridotConfig, ToolDefinition } from '../../../shared/types'
 
+vi.mock('../../../shared/on-chain-position', () => ({
+  readOnChainPosition: vi.fn().mockResolvedValue({
+    totalSuppliedUsd: 12_000,
+    totalBorrowedUsd: 5_000,
+    assets: [{ assetId: 'USDC', suppliedUsd: 12_000, borrowedUsd: 5_000, suppliedTokens: 12000, borrowedTokens: 5000, priceUsd: 1 }],
+  }),
+}))
+
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
@@ -468,17 +476,16 @@ describe('MCP handler — get_market_rates', () => {
 describe('MCP handler — get_user_position', () => {
   it('returns a portfolio summary', async () => {
     const tool = findTool('get_user_position')
-    const response = await mcpExecute(tool, { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' })
+    const response = await mcpExecute(tool, { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', chainId: 56 })
     expect(response.isError).toBe(false)
     const parsed = JSON.parse(response.content[0]!.text)
     expect(typeof parsed.totalSuppliedUsd).toBe('number')
-    expect(typeof parsed.healthFactor).toBe('number')
     expect(Array.isArray(parsed.assets)).toBe(true)
   })
 
   it('computes healthFactor as totalSupplied / totalBorrowed', async () => {
     const tool = findTool('get_user_position')
-    const response = await mcpExecute(tool, { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266' })
+    const response = await mcpExecute(tool, { address: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266', chainId: 56 })
     const parsed = JSON.parse(response.content[0]!.text)
     // 12000 / 5000 = 2.4
     expect(parsed.healthFactor).toBeCloseTo(2.4)

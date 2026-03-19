@@ -222,18 +222,17 @@ describe('getMarketRates tool [live]', () => {
 
 describe('getUserPosition tool [live]', () => {
   it('returns a structurally valid position for any address', async () => {
-    const result = await getUserPosition({ address: TEST_ADDRESS }, config)
+    const result = await getUserPosition({ address: TEST_ADDRESS, chainId: 56 }, config)
 
     expect(result.address).toBe(TEST_ADDRESS)
-    expect(isPositiveNumber(result.totalSuppliedUsd)).toBe(true)
-    expect(isPositiveNumber(result.totalBorrowedUsd)).toBe(true)
+    expect(typeof result.totalSuppliedUsd).toBe('number')
+    expect(typeof result.totalBorrowedUsd).toBe('number')
     expect(Array.isArray(result.assets)).toBe(true)
-    expect(typeof result.transactions.supplyCount).toBe('number')
   })
 
   it('returns null healthFactor when there are no borrows', async () => {
     // TEST_ADDRESS is empty — should have no borrows
-    const result = await getUserPosition({ address: TEST_ADDRESS }, config)
+    const result = await getUserPosition({ address: TEST_ADDRESS, chainId: 56 }, config)
     if (result.totalBorrowedUsd === 0) {
       expect(result.healthFactor).toBeNull()
     }

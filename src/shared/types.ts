@@ -114,14 +114,7 @@ export interface UserPosition {
     borrowedUsd: number
     netUsd: number
   }>
-  transactions: {
-    supplyCount: number
-    borrowCount: number
-    repayCount: number
-    redeemCount: number
-  }
-  /** ISO timestamp of when this data was fetched. Portfolio data is indexed from chain events
-   *  and may lag recent on-chain activity by up to ~60 seconds. */
+  /** ISO timestamp of when this data was fetched. */
   fetchedAt: string
 }
 
@@ -146,18 +139,6 @@ export interface PortfolioOverview {
     /** Percentage of net portfolio value this asset represents. */
     percentage: number
   }>
-  transactions: {
-    totalCount: number
-    supplyCount: number
-    borrowCount: number
-    repayCount: number
-    redeemCount: number
-  }
-  earnings: {
-    effectiveApy: number
-    /** Estimated lifetime earnings in USD based on supply history and net APY. */
-    totalLifetimeEarnings: number
-  }
 }
 
 export interface SimulateBorrowResult {

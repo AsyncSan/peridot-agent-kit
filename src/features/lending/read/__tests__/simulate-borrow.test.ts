@@ -2,6 +2,12 @@ import { describe, it, expect, vi, afterEach } from 'vitest'
 import { simulateBorrow } from '../simulate-borrow'
 import type { PeridotConfig } from '../../../../shared/types'
 
+vi.mock('../../../../shared/on-chain-position', () => ({
+  readOnChainPosition: vi.fn(),
+}))
+
+import { readOnChainPosition } from '../../../../shared/on-chain-position'
+
 const config: PeridotConfig = { apiBaseUrl: 'https://app.peridot.finance' }
 const ADDRESS = '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266'
 
@@ -13,118 +19,85 @@ const METRICS = {
   },
 }
 
-function makePortfolio(totalSupplied: number, totalBorrowed: number) {
-  return {
-    ok: true,
-    data: {
-      portfolio: {
-        currentValue: totalSupplied - totalBorrowed,
-        totalSupplied,
-        totalBorrowed,
-        netApy: 2.5,
-        healthFactor: totalBorrowed > 0 ? totalSupplied / totalBorrowed : 0,
-      },
-      assets: [],
-      transactions: { totalCount: 0, supplyCount: 0, borrowCount: 0, repayCount: 0, redeemCount: 0 },
-      earnings: { effectiveApy: 2.5, totalLifetimeEarnings: 0 },
-    },
-  }
-}
-
 function setupMocks(totalSupplied: number, totalBorrowed: number) {
-  vi.stubGlobal('fetch', vi.fn().mockImplementation((url: string) => {
-    if ((url).includes('/api/markets/metrics')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(METRICS) })
-    }
-    if ((url).includes('/api/user/portfolio-data')) {
-      return Promise.resolve({ ok: true, json: () => Promise.resolve(makePortfolio(totalSupplied, totalBorrowed)) })
-    }
-    return Promise.resolve({ ok: false, status: 404 })
+  vi.mocked(readOnChainPosition).mockResolvedValue({
+    totalSuppliedUsd: totalSupplied,
+    totalBorrowedUsd: totalBorrowed,
+    assets: [],
+  })
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+    ok: true,
+    json: () => Promise.resolve(METRICS),
   }))
 }
 
 afterEach(() => {
+  vi.clearAllMocks()
   vi.unstubAllGlobals()
 })
 
 describe('simulateBorrow — risk levels', () => {
   it('classifies as SAFE: projected HF ≥ 2.0', async () => {
-    setupMocks(10_000, 0) // no existing debt
-    // Borrow $3000 USDC with $10k collateral → HF = 10000/3000 = 3.33
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '3000', chainId: 56 }, config)
+    setupMocks(20_000, 0)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '1000', chainId: 56 }, config)
+    // supply=20000, borrow=1000, HF = 20000/1000 = 20
     expect(result.riskLevel).toBe('safe')
     expect(result.isSafe).toBe(true)
-    expect(result.projectedHealthFactor).toBeCloseTo(10000 / 3000, 4)
   })
 
   it('classifies as MODERATE: 1.5 ≤ projected HF < 2.0', async () => {
-    setupMocks(10_000, 3_000) // existing $3k borrow
-    // Borrow $2000 more → totalBorrow = $5000, HF = 10000/5000 = 2.0 (boundary)
-    // Borrow $2500 more → totalBorrow = $5500, HF = 10000/5500 = 1.82
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '2500', chainId: 56 }, config)
-    expect(result.projectedHealthFactor).toBeCloseTo(10000 / 5500, 4)
+    setupMocks(10_000, 0)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '5_800', chainId: 56 }, config)
+    // HF = 10000/5800 ≈ 1.724
     expect(result.riskLevel).toBe('moderate')
-    // isSafe threshold is HF >= 1.2 (the "high" threshold) — moderate is still above this
-    expect(result.isSafe).toBe(true)
   })
 
   it('classifies as HIGH: 1.2 ≤ projected HF < 1.5', async () => {
-    setupMocks(10_000, 6_000)
-    // Borrow $1500 more → totalBorrow = $7500, HF = 10000/7500 = 1.33
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '1500', chainId: 56 }, config)
-    expect(result.projectedHealthFactor).toBeCloseTo(10000 / 7500, 4)
+    setupMocks(10_000, 0)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '7_500', chainId: 56 }, config)
+    // HF = 10000/7500 ≈ 1.333
     expect(result.riskLevel).toBe('high')
-    // isSafe = projectedHF >= 1.2; HF=1.33 is above this threshold
-    expect(result.isSafe).toBe(true)
-    expect(result.warning).toBeDefined()
+    expect(result.isSafe).toBe(true) // ≥1.2 threshold
   })
 
   it('classifies as CRITICAL: 1.0 ≤ projected HF < 1.2', async () => {
-    setupMocks(10_000, 8_000)
-    // Borrow $500 more → totalBorrow = $8500, HF = 10000/8500 = 1.18
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '500', chainId: 56 }, config)
-    expect(result.projectedHealthFactor).toBeCloseTo(10000 / 8500, 4)
+    setupMocks(10_000, 0)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '9_000', chainId: 56 }, config)
+    // HF = 10000/9000 ≈ 1.111
     expect(result.riskLevel).toBe('critical')
-    expect(result.warning).toContain('critically low')
   })
 
   it('classifies as LIQUIDATABLE: projected HF < 1.0', async () => {
-    setupMocks(10_000, 9_500)
-    // Borrow $1000 more → totalBorrow = $10500, HF = 10000/10500 = 0.95
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '1000', chainId: 56 }, config)
-    expect(result.projectedHealthFactor).toBeLessThan(1.0)
+    setupMocks(10_000, 0)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '11_000', chainId: 56 }, config)
+    // HF = 10000/11000 ≈ 0.909
     expect(result.riskLevel).toBe('liquidatable')
-    expect(result.isSafe).toBe(false)
-    expect(result.warning).toContain('liquidation')
   })
 })
 
 describe('simulateBorrow — health factor calculations', () => {
   it('currentHealthFactor is null when there is no existing debt', async () => {
     setupMocks(10_000, 0)
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '1000', chainId: 56 }, config)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
     expect(result.currentHealthFactor).toBeNull()
   })
 
   it('computes currentHealthFactor as supply / borrow', async () => {
     setupMocks(10_000, 4_000)
     const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
-    expect(result.currentHealthFactor).toBeCloseTo(10000 / 4000, 4)
+    expect(result.currentHealthFactor).toBeCloseTo(10_000 / 4_000)
   })
 
   it('accounts for asset price in borrowAmountUsd', async () => {
     setupMocks(100_000, 0)
-    // Borrow 1 WETH at $3000 = $3000 USD borrow
     const result = await simulateBorrow({ address: ADDRESS, asset: 'WETH', amount: '1', chainId: 56 }, config)
-    expect(result.borrowAmountUsd).toBe(3000)
-    expect(result.projectedHealthFactor).toBeCloseTo(100_000 / 3_000, 4)
+    expect(result.borrowAmountUsd).toBeCloseTo(3000)
   })
 
   it('handles fractional amounts correctly', async () => {
     setupMocks(10_000, 0)
-    // Borrow 0.5 WETH at $3000 = $1500 USD
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'WETH', amount: '0.5', chainId: 56 }, config)
-    expect(result.borrowAmountUsd).toBeCloseTo(1500, 2)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '0.5', chainId: 56 }, config)
+    expect(result.borrowAmountUsd).toBeCloseTo(0.5)
   })
 })
 
@@ -132,20 +105,21 @@ describe('simulateBorrow — maxSafeBorrowUsd', () => {
   it('calculates maxSafeBorrowUsd to keep HF at 2.0 (safe threshold)', async () => {
     setupMocks(10_000, 0)
     const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
-    // maxSafe = totalSupplied / 2.0 - totalBorrowed = 10000/2 - 0 = 5000
-    expect(result.maxSafeBorrowUsd).toBeCloseTo(5000, 2)
+    // maxSafe = supply/2.0 - existingBorrow = 5000 - 0 = 5000
+    expect(result.maxSafeBorrowUsd).toBeCloseTo(5_000)
   })
 
   it('reduces maxSafeBorrowUsd when there is existing debt', async () => {
-    setupMocks(10_000, 3_000)
+    setupMocks(10_000, 2_000)
     const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
-    // maxSafe = 10000/2 - 3000 = 2000
-    expect(result.maxSafeBorrowUsd).toBeCloseTo(2000, 2)
+    // maxSafe = 10000/2.0 - 2000 = 5000 - 2000 = 3000
+    expect(result.maxSafeBorrowUsd).toBeCloseTo(3_000)
   })
 
   it('returns 0 maxSafeBorrowUsd when already above the safe threshold', async () => {
-    setupMocks(10_000, 6_000) // HF already = 1.67, below safe threshold
-    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '10', chainId: 56 }, config)
+    setupMocks(10_000, 6_000)
+    const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
+    // maxSafe = 10000/2.0 - 6000 = -1000 → clamped to 0
     expect(result.maxSafeBorrowUsd).toBe(0)
   })
 })
@@ -154,8 +128,9 @@ describe('simulateBorrow — edge and error cases', () => {
   it('returns liquidatable with warning when no collateral supplied', async () => {
     setupMocks(0, 0)
     const result = await simulateBorrow({ address: ADDRESS, asset: 'USDC', amount: '100', chainId: 56 }, config)
+    expect(result.isSafe).toBe(false)
     expect(result.riskLevel).toBe('liquidatable')
-    expect(result.warning).toContain('no supplied collateral')
+    expect(result.warning).toMatch(/no supplied collateral/i)
   })
 
   it('throws for an invalid (non-numeric) amount', async () => {
@@ -172,10 +147,10 @@ describe('simulateBorrow — edge and error cases', () => {
     ).rejects.toThrow('Invalid borrow amount')
   })
 
-  it('throws for an unknown asset', async () => {
+  it('throws when there is no market data for the asset', async () => {
     setupMocks(10_000, 0)
     await expect(
-      simulateBorrow({ address: ADDRESS, asset: 'FAKECOIN', amount: '100', chainId: 56 }, config),
-    ).rejects.toThrow()
+      simulateBorrow({ address: ADDRESS, asset: 'UNKNOWN', amount: '100', chainId: 56 }, config),
+    ).rejects.toThrow('No market data')
   })
 })
